@@ -1,0 +1,759 @@
+<title>Kannada RAG Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..600&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=Tiro+Kannada&family=IBM+Plex+Mono:wght@400;500&family=Work+Sans:wght@500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #EEF2F0;
+    --surface: #FFFFFF;
+    --surface-2: #E3EAE7;
+    --ink: #162422;
+    --ink-muted: #52716C;
+    --border: #CFDBD7;
+    --accent: #0E6E5C;
+    --accent-ink: #FFFFFF;
+    --accent-soft: #D9EDE7;
+    --warm: #B96B1E;
+    --warm-soft: #F3E2C9;
+    --status-done: #1F7A4D;
+    --status-done-soft: #DFF0E4;
+    --status-stub: #B0721A;
+    --status-stub-soft: #F5E5C9;
+    --status-planned: #5C6F72;
+    --status-planned-soft: #E6ECEB;
+    --code-bg: #10201E;
+    --code-ink: #DCEAE5;
+    --shadow: rgba(14, 40, 34, 0.10);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0B1413;
+      --surface: #101C1A;
+      --surface-2: #16241F;
+      --ink: #E8F0EC;
+      --ink-muted: #93AFA9;
+      --border: #253833;
+      --accent: #3FC0A2;
+      --accent-ink: #052A22;
+      --accent-soft: #163531;
+      --warm: #E2A24E;
+      --warm-soft: #3A2B15;
+      --status-done: #4CC087;
+      --status-done-soft: #133427;
+      --status-stub: #E3AA4F;
+      --status-stub-soft: #392A13;
+      --status-planned: #8DA3A0;
+      --status-planned-soft: #1B2926;
+      --code-bg: #071110;
+      --code-ink: #CDE7DE;
+      --shadow: rgba(0, 0, 0, 0.45);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #0B1413;
+    --surface: #101C1A;
+    --surface-2: #16241F;
+    --ink: #E8F0EC;
+    --ink-muted: #93AFA9;
+    --border: #253833;
+    --accent: #3FC0A2;
+    --accent-ink: #052A22;
+    --accent-soft: #163531;
+    --warm: #E2A24E;
+    --warm-soft: #3A2B15;
+    --status-done: #4CC087;
+    --status-done-soft: #133427;
+    --status-stub: #E3AA4F;
+    --status-stub-soft: #392A13;
+    --status-planned: #8DA3A0;
+    --status-planned-soft: #1B2926;
+    --code-bg: #071110;
+    --code-ink: #CDE7DE;
+    --shadow: rgba(0, 0, 0, 0.45);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Source Serif 4", Georgia, "Noto Serif", serif;
+    font-size: 16.5px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .kn { font-family: "Tiro Kannada", "Noto Sans Kannada", serif; }
+
+  code, .mono, .stat-value, td.num, th.num {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .label {
+    font-family: "Work Sans", system-ui, sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+  }
+
+  h1, h2, h3 {
+    font-family: "Fraunces", "Source Serif 4", serif;
+    font-weight: 600;
+    text-wrap: balance;
+    color: var(--ink);
+    line-height: 1.18;
+  }
+
+  h1 { font-size: clamp(1.9rem, 3.4vw, 2.7rem); margin: 0.2em 0 0.3em; }
+  h2 { font-size: 1.5rem; margin: 0 0 0.15em; padding-top: 0.1em; }
+  h3 { font-size: 1.08rem; margin: 1.4em 0 0.5em; font-weight: 600; }
+
+  p { max-width: 66ch; }
+  a { color: var(--accent); }
+
+  .page {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem 5rem;
+    display: grid;
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: 3rem;
+    align-items: start;
+  }
+
+  header.masthead {
+    grid-column: 1 / -1;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.6rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .eyebrow {
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+  }
+  .eyebrow::before {
+    content: "";
+    width: 26px;
+    height: 2px;
+    background: var(--accent);
+    display: inline-block;
+  }
+
+  .dek {
+    color: var(--ink-muted);
+    font-size: 1.05rem;
+    font-style: italic;
+    max-width: 62ch;
+  }
+
+  .metarow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem 1.6rem;
+    margin-top: 1.3rem;
+  }
+  .metaitem {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+  .metaitem .label { color: var(--ink-muted); }
+  .metaitem .stat-value { font-size: 1.05rem; font-weight: 500; }
+
+  nav.toc {
+    position: sticky;
+    top: 2rem;
+    align-self: start;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    font-family: "Work Sans", sans-serif;
+    font-size: 0.86rem;
+  }
+  nav.toc a {
+    color: var(--ink-muted);
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    padding-left: 0.7rem;
+  }
+  nav.toc a:hover { color: var(--accent); border-left-color: var(--accent); }
+
+  main { min-width: 0; }
+
+  section { margin-bottom: 3.2rem; scroll-margin-top: 1.5rem; }
+  section > .label { color: var(--ink-muted); }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 1px 2px var(--shadow);
+  }
+
+  .scroll-x { overflow-x: auto; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.92rem;
+    min-width: 640px;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.6rem 0.9rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  thead th {
+    font-family: "Work Sans", sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    color: var(--ink-muted);
+    background: var(--surface-2);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td .path, .mono-inline { font-family: "IBM Plex Mono", monospace; font-size: 0.85em; color: var(--ink-muted); }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    padding: 0.18rem 0.65rem;
+    border-radius: 999px;
+    font-family: "Work Sans", sans-serif;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+  }
+  .pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .pill.done { background: var(--status-done-soft); color: var(--status-done); }
+  .pill.stub { background: var(--status-stub-soft); color: var(--status-stub); }
+  .pill.planned { background: var(--status-planned-soft); color: var(--status-planned); }
+
+  .diagram-wrap {
+    padding: 1.6rem 1.2rem 1rem;
+  }
+  .diagram-wrap svg { width: 100%; height: auto; display: block; color: var(--ink); }
+  figcaption {
+    color: var(--ink-muted);
+    font-size: 0.88rem;
+    padding: 0 1.2rem 1.2rem;
+    max-width: 72ch;
+  }
+  figure { margin: 0; }
+
+  .stage-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+  .stage-card {
+    padding: 1.1rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .stage-card h3 { margin: 0; font-size: 1rem; }
+  .stage-card p { margin: 0; font-size: 0.9rem; color: var(--ink-muted); max-width: none; }
+  .stage-card .path { font-size: 0.82rem; }
+  .stage-num {
+    font-family: "IBM Plex Mono", monospace;
+    color: var(--accent);
+    font-size: 0.78rem;
+  }
+
+  pre {
+    background: var(--code-bg);
+    color: var(--code-ink);
+    border-radius: 8px;
+    padding: 1.1rem 1.3rem;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.7;
+  }
+  pre code { font-family: "IBM Plex Mono", monospace; }
+  .comment { color: #7FA79C; }
+
+  blockquote {
+    border-left: 3px solid var(--warm);
+    margin: 1rem 0;
+    padding: 0.2rem 0 0.2rem 1rem;
+    background: var(--warm-soft);
+    border-radius: 0 8px 8px 0;
+    max-width: 68ch;
+  }
+  blockquote p { margin: 0.5rem 0; font-size: 0.95rem; }
+
+  ul.limits { padding-left: 1.3rem; display: flex; flex-direction: column; gap: 0.6rem; max-width: 70ch; }
+  ul.limits li::marker { color: var(--warm); }
+
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 1rem;
+  }
+  .kpi {
+    background: var(--surface);
+    padding: 1rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+  .kpi .stat-value { font-size: 1.6rem; font-weight: 500; }
+  .kpi .label { color: var(--ink-muted); }
+
+  footer {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--border);
+    margin-top: 1rem;
+    padding-top: 1.2rem;
+    color: var(--ink-muted);
+    font-size: 0.85rem;
+    font-family: "Work Sans", sans-serif;
+  }
+
+  @media (max-width: 860px) {
+    .page { grid-template-columns: 1fr; }
+    nav.toc {
+      position: static;
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 0.3rem 1rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1rem;
+    }
+    nav.toc a { border-left: none; padding-left: 0; }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    section { animation: rise 0.5s ease both; }
+    section:nth-of-type(1) { animation-delay: 0.02s; }
+    section:nth-of-type(2) { animation-delay: 0.05s; }
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+  }
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <div class="eyebrow label">Technical report</div>
+    <h1>Kannada RAG — Stack &amp; Workflow</h1>
+    <p class="dek">What the system is built from, and how a question travels from <span class="kn">ಪ್ರಶ್ನೆ</span> to a grounded Kannada answer, as of the current build.</p>
+    <div class="metarow">
+      <div class="metaitem"><span class="label">Report date</span><span class="stat-value">2026-09-16</span></div>
+      <div class="metaitem"><span class="label">Books indexed</span><span class="stat-value">5</span></div>
+      <div class="metaitem"><span class="label">Chunks indexed</span><span class="stat-value">1,828</span></div>
+      <div class="metaitem"><span class="label">Target scale</span><span class="stat-value">~30,000 books</span></div>
+      <div class="metaitem"><span class="label">Generation</span><span class="stat-value">Connected (OpenRouter)</span></div>
+    </div>
+  </header>
+
+  <nav class="toc" aria-label="Table of contents">
+    <a href="#overview">Overview</a>
+    <a href="#stack">Technology stack</a>
+    <a href="#workflow">Architecture &amp; workflow</a>
+    <a href="#stages">Pipeline stages</a>
+    <a href="#data">Indexed data</a>
+    <a href="#quality">Retrieval quality</a>
+    <a href="#limits">Limitations &amp; roadmap</a>
+    <a href="#reference">Quick reference</a>
+  </nav>
+
+  <main>
+
+    <section id="overview">
+      <div class="label">01 · Overview</div>
+      <h2>What this system does</h2>
+      <p>The project is a Retrieval-Augmented Generation (RAG) system for searching and answering questions over a collection of Kannada-language books. A user asks a question in Kannada; the system retrieves the most relevant passages from the indexed books and passes them to a large language model, which answers using only that retrieved text and cites its source (book, author, page, chunk).</p>
+      <p>OCR is treated as an external, upstream concern — the pipeline starts from already-extracted <code class="mono-inline">.docx</code> text. The long-term goal is roughly 30,000 books; the current build has ingested and indexed <strong>5</strong> books end to end and exposes them through a Streamlit UI with a live LLM connection.</p>
+    </section>
+
+    <section id="stack">
+      <div class="label">02 · Technology stack</div>
+      <h2>What it's built from</h2>
+      <p>Everything runs locally in a single Python 3.12 virtual environment — no external services except the embedding model download and the OpenRouter API call at generation time.</p>
+      <div class="panel scroll-x">
+        <table>
+          <thead>
+            <tr><th>Stage</th><th>Technology</th><th>Version</th><th>Role</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Ingestion (DOCX)</td>
+              <td>python-docx</td>
+              <td class="num">1.2.0</td>
+              <td>Parses paragraphs + Word page-break markers into canonical page/paragraph JSON</td>
+              <td><span class="pill done">live</span></td>
+            </tr>
+            <tr>
+              <td>Ingestion (PDF)</td>
+              <td>PyMuPDF (<span class="mono-inline">pymupdf</span>)</td>
+              <td class="num">1.28.2</td>
+              <td>Installed and runnable standalone; not wired into the pipeline — schema mismatch with the chunker</td>
+              <td><span class="pill planned">deferred</span></td>
+            </tr>
+            <tr>
+              <td>Ingestion (plain text)</td>
+              <td>—</td>
+              <td class="num">—</td>
+              <td>No <span class="mono-inline">.txt</span> loader yet; dispatch seam documented in <span class="path">pipeline/ingest.py</span></td>
+              <td><span class="pill planned">planned</span></td>
+            </tr>
+            <tr>
+              <td>Chunking</td>
+              <td>Custom paragraph-aware chunker</td>
+              <td class="num">—</td>
+              <td>Greedy grouping, 1000–1500 char target, paragraph boundaries preserved, no overlap</td>
+              <td><span class="pill done">live</span></td>
+            </tr>
+            <tr>
+              <td>Embedding model</td>
+              <td>sentence-transformers · BAAI/bge-m3</td>
+              <td class="num">6.0.1</td>
+              <td>Multilingual sentence embeddings; confirmed to handle Kannada well</td>
+              <td><span class="pill done">live</span></td>
+            </tr>
+            <tr>
+              <td>Embedding runtime</td>
+              <td>PyTorch</td>
+              <td class="num">2.11.0+cu128</td>
+              <td>CUDA if available, otherwise CPU</td>
+              <td><span class="pill done">live</span></td>
+            </tr>
+            <tr>
+              <td>Vector / search DB</td>
+              <td>ChromaDB (PersistentClient)</td>
+              <td class="num">1.5.9</td>
+              <td>Local, file-persisted at <span class="path">data/index/chroma/</span>; cosine similarity; one collection across all books, filterable by <span class="mono-inline">book_id</span></td>
+              <td><span class="pill done">live</span></td>
+            </tr>
+            <tr>
+              <td>Retrieval</td>
+              <td>Custom (<span class="path">retrieval/search.py</span>)</td>
+              <td class="num">—</td>
+              <td>Embeds the question, queries Chroma, returns ranked chunks with metadata</td>
+              <td><span class="pill done">live</span></td>
+            </tr>
+            <tr>
+              <td>Reranking</td>
+              <td>Pass-through stub (<span class="path">retrieval/reranker.py</span>)</td>
+              <td class="num">—</td>
+              <td>Truncates vector-ranked results to top-n; no cross-encoder scoring yet</td>
+              <td><span class="pill stub">stub</span></td>
+            </tr>
+            <tr>
+              <td>Generation</td>
+              <td>OpenRouter API — <span class="mono-inline">openai/gpt-4o-mini</span></td>
+              <td class="num">—</td>
+              <td>Chat completion over HTTPS via <span class="mono-inline">requests</span>, grounded strictly on retrieved chunks</td>
+              <td><span class="pill done">live</span></td>
+            </tr>
+            <tr>
+              <td>HTTP client</td>
+              <td>requests</td>
+              <td class="num">2.34.2</td>
+              <td>Used for the OpenRouter call</td>
+              <td><span class="pill done">live</span></td>
+            </tr>
+            <tr>
+              <td>Secrets</td>
+              <td>python-dotenv</td>
+              <td class="num">1.2.3</td>
+              <td>Loads <span class="mono-inline">OPENROUTER_API_KEY</span> from a local, git-ignored <span class="path">.env</span></td>
+              <td><span class="pill done">live</span></td>
+            </tr>
+            <tr>
+              <td>User interface</td>
+              <td>Streamlit</td>
+              <td class="num">1.64.0</td>
+              <td>Question box, per-book filter, top-k/top-n controls, answer + expandable sources</td>
+              <td><span class="pill done">live</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="workflow">
+      <div class="label">03 · Architecture &amp; workflow</div>
+      <h2>How a question gets answered</h2>
+      <p>Two flows meet at the vector database. Books are ingested once, offline, into a shared index; each question then queries that same index at ask-time.</p>
+
+      <figure class="panel diagram-wrap">
+        <svg viewBox="0 0 900 430" role="img" aria-label="Diagram: DOCX files flow through a loader, chunker, and embedder into a shared Chroma vector database. Separately, a user's Kannada question and the vector database both feed into retrieval, which passes its top candidates through a pass-through reranker stub, a prompt builder, an OpenRouter LLM call, and out as a cited answer.">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <polygon points="0,0 10,5 0,10" fill="currentColor"></polygon>
+            </marker>
+          </defs>
+
+          <!-- top row: ingestion -->
+          <g font-family="Work Sans, sans-serif">
+            <rect x="45" y="40" width="180" height="62" rx="8" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
+            <text x="135" y="65" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">DOCX files</text>
+            <text x="135" y="83" text-anchor="middle" font-size="10.5" fill="currentColor" opacity="0.65">data/input/*.docx</text>
+
+            <rect x="250" y="40" width="180" height="62" rx="8" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
+            <text x="340" y="61" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Loader + Chunker</text>
+            <text x="340" y="76" text-anchor="middle" font-size="10.5" fill="currentColor" opacity="0.65">docx_loader.py</text>
+            <text x="340" y="89" text-anchor="middle" font-size="10.5" fill="currentColor" opacity="0.65">chunker.py</text>
+
+            <rect x="455" y="40" width="180" height="62" rx="8" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
+            <text x="545" y="65" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Embed (bge-m3)</text>
+            <text x="545" y="83" text-anchor="middle" font-size="10.5" fill="currentColor" opacity="0.65">embeddings/model.py</text>
+
+            <rect x="660" y="40" width="180" height="62" rx="8" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.4"></rect>
+            <text x="750" y="65" text-anchor="middle" font-size="13" font-weight="600" fill="var(--accent)">Chroma vector DB</text>
+            <text x="750" y="83" text-anchor="middle" font-size="10.5" fill="var(--accent)" opacity="0.8">data/index/chroma/</text>
+
+            <line x1="227" y1="71" x2="248" y2="71" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"></line>
+            <text x="237" y="60" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">raw text</text>
+
+            <line x1="432" y1="71" x2="453" y2="71" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"></line>
+            <text x="442" y="30" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">chunks</text>
+            <text x="442" y="42" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">(JSONL)</text>
+
+            <line x1="637" y1="71" x2="658" y2="71" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"></line>
+            <text x="647" y="30" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">vectors +</text>
+            <text x="647" y="42" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">metadata</text>
+          </g>
+
+          <!-- user question -->
+          <g font-family="Work Sans, sans-serif">
+            <rect x="35" y="215" width="150" height="52" rx="8" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="0"></rect>
+            <text x="110" y="238" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">User question</text>
+            <text x="110" y="253" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.65" class="kn">ಕನ್ನಡದಲ್ಲಿ</text>
+
+            <line x1="110" y1="267" x2="110" y2="318" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"></line>
+          </g>
+
+          <!-- chroma to retrieval elbow -->
+          <polyline points="750,102 750,290 170,290 170,318" fill="none" stroke="var(--accent)" stroke-width="1.3" marker-end="url(#arrow)"></polyline>
+          <text x="460" y="283" text-anchor="middle" font-size="9.5" fill="var(--accent)" font-family="Work Sans, sans-serif">nearest chunks (query-time)</text>
+
+          <!-- bottom row: query pipeline -->
+          <g font-family="Work Sans, sans-serif">
+            <rect x="35" y="320" width="150" height="62" rx="8" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
+            <text x="110" y="345" text-anchor="middle" font-size="12.5" font-weight="600" fill="currentColor">Retrieval</text>
+            <text x="110" y="361" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.65">search.py · top-k</text>
+
+            <rect x="205" y="320" width="150" height="62" rx="8" fill="var(--warm-soft)" stroke="var(--warm)" stroke-width="1.3" stroke-dasharray="5 3"></rect>
+            <text x="280" y="341" text-anchor="middle" font-size="12" font-weight="600" fill="var(--warm)">Reranker</text>
+            <text x="280" y="356" text-anchor="middle" font-size="9.5" fill="var(--warm)" opacity="0.9">pass-through</text>
+            <text x="280" y="369" text-anchor="middle" font-size="9.5" fill="var(--warm)" opacity="0.9">stub</text>
+
+            <rect x="375" y="320" width="150" height="62" rx="8" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
+            <text x="450" y="345" text-anchor="middle" font-size="12.5" font-weight="600" fill="currentColor">Prompt</text>
+            <text x="450" y="361" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.65">generation/prompt.py</text>
+
+            <rect x="545" y="320" width="150" height="62" rx="8" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
+            <text x="620" y="341" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">LLM call</text>
+            <text x="620" y="356" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">OpenRouter</text>
+            <text x="620" y="369" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">gpt-4o-mini</text>
+
+            <rect x="715" y="320" width="150" height="62" rx="8" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.2"></rect>
+            <text x="790" y="345" text-anchor="middle" font-size="12.5" font-weight="600" fill="currentColor">Answer</text>
+            <text x="790" y="361" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.65">+ citations</text>
+
+            <line x1="187" y1="351" x2="203" y2="351" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"></line>
+            <text x="195" y="400" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">top-10/20</text>
+
+            <line x1="357" y1="351" x2="373" y2="351" stroke="var(--warm)" stroke-width="1.2" marker-end="url(#arrow)"></line>
+            <text x="365" y="400" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">top-3/5</text>
+
+            <line x1="527" y1="351" x2="543" y2="351" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"></line>
+            <text x="535" y="400" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">prompt text</text>
+
+            <line x1="697" y1="351" x2="713" y2="351" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"></line>
+            <text x="705" y="400" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">answer</text>
+          </g>
+        </svg>
+        <figcaption>Ingestion (top) fills one shared Chroma collection offline. At query time (bottom), a question and the same collection both feed <em>Retrieval</em>; results pass through today's pass-through reranker stub (dashed, amber) before the prompt is built and sent to the LLM.</figcaption>
+      </figure>
+    </section>
+
+    <section id="stages">
+      <div class="label">04 · Pipeline stages</div>
+      <h2>Stage by stage</h2>
+      <div class="stage-grid">
+        <div class="panel stage-card">
+          <span class="stage-num">01</span>
+          <h3>Ingest</h3>
+          <p>Reads a <span class="mono-inline">.docx</span>, walks paragraphs, detects Word page-break XML markers to group text into pages. Writes canonical JSON to <span class="path">data/processed/&lt;book_id&gt;.json</span>.</p>
+          <p class="path">src/ingestion/docx_loader.py</p>
+        </div>
+        <div class="panel stage-card">
+          <span class="stage-num">02</span>
+          <h3>Chunk</h3>
+          <p>Greedily groups consecutive paragraphs into 1000–1500 character chunks, preferring paragraph boundaries, no overlap. Writes <span class="path">data/chunks/&lt;book_id&gt;.jsonl</span>.</p>
+          <p class="path">src/ingestion/chunker.py</p>
+        </div>
+        <div class="panel stage-card">
+          <span class="stage-num">03</span>
+          <h3>Embed &amp; index</h3>
+          <p>Encodes every chunk with bge-m3 and upserts into Chroma, keyed by <span class="mono-inline">chunk_id</span> — safe to re-run without duplicating vectors.</p>
+          <p class="path">src/embeddings/embed.py</p>
+        </div>
+        <div class="panel stage-card">
+          <span class="stage-num">04</span>
+          <h3>Retrieve</h3>
+          <p>Embeds the question with the same model, queries Chroma for the top-k nearest chunks (cosine), optionally scoped to one <span class="mono-inline">book_id</span>.</p>
+          <p class="path">src/retrieval/search.py</p>
+        </div>
+        <div class="panel stage-card">
+          <span class="stage-num">05</span>
+          <h3>Rerank <span class="pill stub">stub</span></h3>
+          <p>Currently just truncates the vector-ranked list to top-n. Signature is stable so a real cross-encoder can drop in later without touching callers.</p>
+          <p class="path">src/retrieval/reranker.py</p>
+        </div>
+        <div class="panel stage-card">
+          <span class="stage-num">06</span>
+          <h3>Prompt</h3>
+          <p>Builds a Kannada system instruction plus labeled source blocks (title, author, page range, chunk id) and the question.</p>
+          <p class="path">src/generation/prompt.py</p>
+        </div>
+        <div class="panel stage-card">
+          <span class="stage-num">07</span>
+          <h3>Generate</h3>
+          <p>Calls OpenRouter's chat completions endpoint with <span class="mono-inline">openai/gpt-4o-mini</span>, grounded strictly on the passed chunks.</p>
+          <p class="path">src/generation/llm.py</p>
+        </div>
+        <div class="panel stage-card">
+          <span class="stage-num">08</span>
+          <h3>Serve</h3>
+          <p>Streamlit app wraps the whole chain: question box, book filter, top-k/top-n sliders, answer, and expandable cited sources.</p>
+          <p class="path">app.py</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="data">
+      <div class="label">05 · Indexed data</div>
+      <h2>What's currently searchable</h2>
+      <p>All five books share one Chroma collection (<span class="mono-inline">kannada_chunks</span>), so a question searches across all of them unless scoped to one book in the UI.</p>
+      <div class="panel scroll-x">
+        <table>
+          <thead>
+            <tr><th>Book ID</th><th>Title</th><th>Author</th><th class="num">Pages</th><th class="num">Chunks</th><th>Metadata</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono-inline">TK001</td>
+              <td>TK001 <em>(filename default)</em></td>
+              <td>Unknown</td>
+              <td class="num">384</td>
+              <td class="num">637</td>
+              <td><span class="pill stub">defaulted</span></td>
+            </tr>
+            <tr>
+              <td class="mono-inline">TK002</td>
+              <td>TK002 <em>(filename default)</em></td>
+              <td>Unknown</td>
+              <td class="num">367</td>
+              <td class="num">490</td>
+              <td><span class="pill stub">defaulted</span></td>
+            </tr>
+            <tr>
+              <td class="mono-inline">TK003</td>
+              <td class="kn">ಕರ್ತವ್ಯಾನಂದ ಶ್ರೀ ರಾಜ ಪುರೋಹಿತರು</td>
+              <td class="kn">ಶ್ರೀನಿವಾಸ ಹಾವನೂರ</td>
+              <td class="num">84</td>
+              <td class="num">86</td>
+              <td><span class="pill done">complete</span></td>
+            </tr>
+            <tr>
+              <td class="mono-inline">TK004</td>
+              <td>TK004 <em>(filename default)</em></td>
+              <td>Unknown</td>
+              <td class="num">210</td>
+              <td class="num">235</td>
+              <td><span class="pill stub">defaulted</span></td>
+            </tr>
+            <tr>
+              <td class="mono-inline">TK005</td>
+              <td>TK005 <em>(filename default)</em></td>
+              <td>Unknown</td>
+              <td class="num">240</td>
+              <td class="num">380</td>
+              <td><span class="pill stub">defaulted</span></td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3"><strong>Total</strong></td>
+              <td class="num"><strong>1,285</strong></td>
+              <td class="num"><strong>1,828</strong></td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <p style="margin-top: 0.9rem; font-size: 0.9rem; color: var(--ink-muted);">Four books were ingested with filename-derived titles and no author, since real metadata wasn't supplied at ingest time. Re-running <span class="mono-inline">pipeline.ingest</span> with <span class="mono-inline">--title</span>/<span class="mono-inline">--author</span> overwrites this cleanly.</p>
+    </section>
+
+    <section id="quality">
+      <div class="label">06 · Retrieval quality</div>
+      <h2>How well retrieval performs</h2>
+      <p>Measured with the existing 15-question Kannada eval set (<span class="path">src/retrieval/evaluate.py</span>), run against <span class="mono-inline">TK003</span> only:</p>
+      <div class="kpi-row">
+        <div class="kpi"><span class="stat-value">66.7%</span><span class="label">Top-1 recall</span></div>
+        <div class="kpi"><span class="stat-value">80.0%</span><span class="label">Top-3 recall</span></div>
+        <div class="kpi"><span class="stat-value">80.0%</span><span class="label">Top-5 recall</span></div>
+        <div class="kpi"><span class="stat-value">0.724</span><span class="label">MRR</span></div>
+      </div>
+      <p style="margin-top: 1rem;">These numbers come from a brute-force, in-memory baseline independent of Chroma. Cross-checked directly: the Chroma-backed <span class="path">pipeline/query.py</span> returns identical ranks and scores for the same questions, confirming the vector DB isn't degrading retrieval quality relative to that baseline.</p>
+      <blockquote>
+        <p><strong>Known gap:</strong> the same evaluation surfaced a case where the correct passage was retrieved but the LLM answered a nearby-but-wrong aspect of it (asked <em>where</em> someone was born, answered <em>when</em>). The book itself never states the place explicitly. Fixed by tightening the prompt's system instructions to require the model to name the specific missing aspect rather than substitute an adjacent fact — verified against both the failing and a working case.</p>
+      </blockquote>
+    </section>
+
+    <section id="limits">
+      <div class="label">07 · Limitations &amp; roadmap</div>
+      <h2>What's deliberately not done yet</h2>
+      <ul class="limits">
+        <li><strong>Reranking is a stub.</strong> No cross-encoder is scoring candidates yet — result quality rests entirely on vector search. <span class="mono-inline">BAAI/bge-reranker-v2-m3</span> was evaluated and deferred by choice.</li>
+        <li><strong>PDF and plain-text ingestion aren't wired in.</strong> <span class="path">ingestion/pdf_parser.py</span> exists but produces a schema the chunker can't consume; a <span class="mono-inline">.txt</span> loader has a documented seam but no implementation.</li>
+        <li><strong>Four of five books carry placeholder metadata</strong> (title = filename, author = "Unknown") — cosmetic only, doesn't affect retrieval.</li>
+        <li><strong>No automated test suite yet</strong> — correctness has been checked via regression diffs and the eval script above, not <span class="mono-inline">pytest</span>.</li>
+        <li><strong>Single global collection by design</strong> — supports cross-book search now and per-book filtering already works via metadata; this is the intended shape for scaling toward 30,000 books, not a shortcut.</li>
+      </ul>
+    </section>
+
+    <section id="reference">
+      <div class="label">08 · Quick reference</div>
+      <h2>Common commands</h2>
+      <pre><code><span class="comment"># Add a new book (loads → chunks → embeds → indexes)</span>
+python -m src.pipeline.ingest data/input/NEWBOOK.docx \
+    --book-id NEWBOOK --title "..." --author "..."
+
+<span class="comment"># Ask a question from the CLI</span>
+python -m src.pipeline.query "ನಿಮ್ಮ ಪ್ರಶ್ನೆ ಇಲ್ಲಿ"
+
+<span class="comment"># Launch the UI</span>
+streamlit run app.py</code></pre>
+    </section>
+
+  </main>
+
+  <footer>Kannada RAG — internal technical report, generated 2026-09-16.</footer>
+</div>
