@@ -1,11 +1,16 @@
-def rerank(question, candidates, top_n=5):
-    """
-    Placeholder for the reranking stage.
+from src.reranker.model import get_reranker
 
-    Candidates are assumed already ranked best-first by vector search, so
-    this just truncates to top_n. Swap in a real cross-encoder (e.g.
-    BAAI/bge-reranker-v2-m3) later without changing this function's
-    signature, since pipeline/query.py depends on it staying
-    (question, candidates, top_n) -> list[dict].
-    """
-    return candidates[:top_n]
+
+def rerank(question, candidates, top_n=5):
+    if not candidates:
+        return []
+
+    pairs = [(question, candidate["text"]) for candidate in candidates]
+    scores = get_reranker().predict(pairs, batch_size=32)
+
+    for candidate, score in zip(candidates, scores):
+        candidate["rerank_score"] = float(score)
+
+    ranked = sorted(candidates, key=lambda c: c["rerank_score"], reverse=True)
+
+    return ranked[:top_n]

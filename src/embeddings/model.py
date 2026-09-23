@@ -23,3 +23,21 @@ def embed_texts(texts, batch_size=32, model_name=MODEL_NAME):
         normalize_embeddings=True,
         show_progress_bar=True,
     )
+
+
+SPARSE_MODEL_NAME = "Qdrant/bm25"
+
+
+@lru_cache(maxsize=1)
+def get_sparse_model(model_name=SPARSE_MODEL_NAME):
+    from fastembed import SparseTextEmbedding
+
+    return SparseTextEmbedding(model_name=model_name)
+
+
+def embed_sparse(texts, model_name=SPARSE_MODEL_NAME):
+    return list(get_sparse_model(model_name).embed(texts))
+
+
+def embed_sparse_query(text, model_name=SPARSE_MODEL_NAME):
+    return list(get_sparse_model(model_name).query_embed(text))[0]

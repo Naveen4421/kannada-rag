@@ -1,23 +1,50 @@
 import argparse
 import json
+import os
+import uuid
 from pathlib import Path
 
-import chromadb
+from qdrant_client import QdrantClient
+from qdrant_client.http import models
 
-from src.embeddings.model import embed_texts
+from src.embeddings.model import embed_texts, embed_sparse
 
 
-INDEX_DIR = Path("data/index/chroma")
+INDEX_DIR = Path("data/index/qdrant")
 COLLECTION_NAME = "kannada_chunks"
+BATCH_SIZE = 64
+
+QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
+QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
+QDRANT_GRPC_PORT = int(os.getenv("QDRANT_GRPC_PORT", "6334"))
+QDRANT_PREFER_GRPC = os.getenv("QDRANT_PREFER_GRPC", "false").lower() == "true"
 
 
-def get_collection(persist_dir=INDEX_DIR, name=COLLECTION_NAME):
-    client = chromadb.PersistentClient(path=str(persist_dir))
-
-    return client.get_or_create_collection(
-        name,
-        metadata={"hnsw:space": "cosine"},
+def get_client():
+    return QdrantClient(
+        host=QDRANT_HOST,
+        port=QDRANT_PORT,
+        grpc_port=QDRANT_GRPC_PORT,
+        prefer_grpc=QDRANT_PREFER_GRPC,
     )
+
+
+def ensure_collection(client, name, vector_size):
+    if not client.collection_exists(name):
+        client.create_collection(
+            collection_name=name,
+            vectors_config={
+                "dense": models.VectorParams(
+                    size=vector_size,
+                    distance=models.Distance.COSINE,
+                ),
+            },
+            sparse_vectors_config={
+                "sparse": models.SparseVectorParams(
+                    modifier=models.Modifier.IDF,
+                ),
+            },
+        )
 
 
 def load_chunks(jsonl_path):
@@ -31,8 +58,24 @@ def load_chunks(jsonl_path):
     return chunks
 
 
-def embed_and_index(jsonl_paths, persist_dir=INDEX_DIR, batch_size=32):
-    collection = get_collection(persist_dir=persist_dir)
+def _make_point(chunk, dense_vector, sparse_vector):
+    payload = dict(chunk)
+
+    return models.PointStruct(
+        id=str(uuid.uuid5(uuid.NAMESPACE_URL, chunk["chunk_id"])),
+        vector={
+            "dense": dense_vector.tolist(),
+            "sparse": models.SparseVector(
+                indices=[int(i) for i in sparse_vector.indices],
+                values=[float(v) for v in sparse_vector.values],
+            ),
+        },
+        payload=payload,
+    )
+
+
+def embed_and_index(jsonl_paths, persist_dir=INDEX_DIR, batch_size=32, collection_name=COLLECTION_NAME):
+    client = get_client()
 
     total = 0
 
@@ -44,32 +87,36 @@ def embed_and_index(jsonl_paths, persist_dir=INDEX_DIR, batch_size=32):
 
         print(f"\n{jsonl_path}: {len(chunks)} chunks")
 
-        texts = [chunk["text"] for chunk in chunks]
-        embeddings = embed_texts(texts, batch_size=batch_size)
+        for start in range(0, len(chunks), BATCH_SIZE):
+            batch = chunks[start:start + BATCH_SIZE]
+            texts = [chunk["text"] for chunk in batch]
 
-        ids = [chunk["chunk_id"] for chunk in chunks]
-        metadatas = [
-            {key: value for key, value in chunk.items() if key != "text"}
-            for chunk in chunks
-        ]
+            dense_embeddings = embed_texts(texts, batch_size=batch_size)
+            sparse_embeddings = embed_sparse(texts)
 
-        collection.upsert(
-            ids=ids,
-            embeddings=embeddings,
-            documents=texts,
-            metadatas=metadatas,
-        )
+            ensure_collection(client, collection_name, len(dense_embeddings[0]))
 
-        total += len(chunks)
+            points = [
+                _make_point(chunk, dense_vector, sparse_vector)
+                for chunk, dense_vector, sparse_vector in zip(batch, dense_embeddings, sparse_embeddings)
+            ]
+
+            # Deterministic point IDs (uuid5 of chunk_id) make this upsert safe to
+            # resume: a crash mid-migration just re-writes already-done batches
+            # identically, no duplication.
+            client.upsert(collection_name=collection_name, points=points)
+
+            total += len(batch)
 
     return total
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Embed chunk JSONL files and upsert into the Chroma index.")
+    parser = argparse.ArgumentParser(description="Embed chunk JSONL files and upsert into the Qdrant index.")
     parser.add_argument("jsonl_files", type=Path, nargs="*", help="Defaults to all of data/chunks/*.jsonl")
     parser.add_argument("--persist-dir", type=Path, default=INDEX_DIR)
     parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--collection", default=COLLECTION_NAME)
     args = parser.parse_args()
 
     jsonl_paths = args.jsonl_files or sorted(Path("data/chunks").glob("*.jsonl"))
@@ -78,9 +125,14 @@ def main():
         print("No chunk files found.")
         return
 
-    total = embed_and_index(jsonl_paths, persist_dir=args.persist_dir, batch_size=args.batch_size)
+    total = embed_and_index(
+        jsonl_paths,
+        persist_dir=args.persist_dir,
+        batch_size=args.batch_size,
+        collection_name=args.collection,
+    )
 
-    print(f"\nIndexed {total} chunks into: {args.persist_dir} (collection: {COLLECTION_NAME})")
+    print(f"\nIndexed {total} chunks into Qdrant at {QDRANT_HOST}:{QDRANT_PORT} (collection: {args.collection})")
 
 
 if __name__ == "__main__":

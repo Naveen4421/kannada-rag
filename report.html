@@ -273,6 +273,17 @@
     color: var(--accent);
     font-size: 0.78rem;
   }
+  .stage-group-label {
+    grid-column: 1 / -1;
+    font-family: "Work Sans", sans-serif;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-top: 1.4rem;
+  }
+  .stage-group-label:first-child { margin-top: 0; }
 
   pre {
     background: var(--code-bg);
@@ -298,6 +309,9 @@
 
   ul.limits { padding-left: 1.3rem; display: flex; flex-direction: column; gap: 0.6rem; max-width: 70ch; }
   ul.limits li::marker { color: var(--warm); }
+
+  ul.fixes { padding-left: 1.3rem; display: flex; flex-direction: column; gap: 0.7rem; max-width: 72ch; }
+  ul.fixes li::marker { color: var(--accent); }
 
   .kpi-row {
     display: grid;
@@ -358,11 +372,11 @@
   <header class="masthead">
     <div class="eyebrow label">Technical report</div>
     <h1>Kannada RAG — Stack &amp; Workflow</h1>
-    <p class="dek">What the system is built from, and how a question travels from <span class="kn">ಪ್ರಶ್ನೆ</span> to a grounded Kannada answer, as of the current build.</p>
+    <p class="dek">What the system is built from, and how a question travels from <span class="kn">ಪ್ರಶ್ನೆ</span> to a grounded Kannada answer — now a modular pipeline, up from the original naive single-pass design.</p>
     <div class="metarow">
-      <div class="metaitem"><span class="label">Report date</span><span class="stat-value">2026-09-16</span></div>
-      <div class="metaitem"><span class="label">Books indexed</span><span class="stat-value">5</span></div>
-      <div class="metaitem"><span class="label">Chunks indexed</span><span class="stat-value">1,828</span></div>
+      <div class="metaitem"><span class="label">Report date</span><span class="stat-value">2026-09-23</span></div>
+      <div class="metaitem"><span class="label">Sources indexed</span><span class="stat-value">7</span></div>
+      <div class="metaitem"><span class="label">Chunks indexed</span><span class="stat-value">1,964</span></div>
       <div class="metaitem"><span class="label">Target scale</span><span class="stat-value">~30,000 books</span></div>
       <div class="metaitem"><span class="label">Generation</span><span class="stat-value">Connected (OpenRouter)</span></div>
     </div>
@@ -373,8 +387,10 @@
     <a href="#stack">Technology stack</a>
     <a href="#workflow">Architecture &amp; workflow</a>
     <a href="#stages">Pipeline stages</a>
+    <a href="#ui">Two-pipeline UI</a>
     <a href="#data">Indexed data</a>
     <a href="#quality">Retrieval quality</a>
+    <a href="#fixes">Fixes this pass</a>
     <a href="#limits">Limitations &amp; roadmap</a>
     <a href="#reference">Quick reference</a>
   </nav>
@@ -385,13 +401,14 @@
       <div class="label">01 · Overview</div>
       <h2>What this system does</h2>
       <p>The project is a Retrieval-Augmented Generation (RAG) system for searching and answering questions over a collection of Kannada-language books. A user asks a question in Kannada; the system retrieves the most relevant passages from the indexed books and passes them to a large language model, which answers using only that retrieved text and cites its source (book, author, page, chunk).</p>
-      <p>OCR is treated as an external, upstream concern — the pipeline starts from already-extracted <code class="mono-inline">.docx</code> text. The long-term goal is roughly 30,000 books; the current build has ingested and indexed <strong>5</strong> books end to end and exposes them through a Streamlit UI with a live LLM connection.</p>
+      <p>The system is now split into two clearly separated pipelines, each with its own Streamlit UI page: a <strong>dataset pipeline</strong> that turns a <span class="mono-inline">.docx</span>/<span class="mono-inline">.txt</span> file into indexed vectors (title/author read automatically from the book's own opening pages), and a <strong>query pipeline</strong> that routes each question by complexity, retrieves via hybrid dense+keyword search, reranks with a real cross-encoder, and either streams a fast answer or runs a bounded self-critique loop.</p>
+      <p>Currently indexed: <strong>7 sources / 1,964 chunks</strong> — 5 historical/biographical <span class="mono-inline">.docx</span> books, 1 science-magazine <span class="mono-inline">.txt</span> OCR dump, and 1 small test file.</p>
     </section>
 
     <section id="stack">
       <div class="label">02 · Technology stack</div>
       <h2>What it's built from</h2>
-      <p>Everything runs locally in a single Python 3.12 virtual environment — no external services except the embedding model download and the OpenRouter API call at generation time.</p>
+      <p>Everything runs locally in a single Python 3.12 virtual environment, with Qdrant running as a separate Docker container — no other external service except the OpenRouter API call at generation time.</p>
       <div class="panel scroll-x">
         <table>
           <thead>
@@ -406,6 +423,13 @@
               <td><span class="pill done">live</span></td>
             </tr>
             <tr>
+              <td>Ingestion (plain text)</td>
+              <td>Custom (<span class="path">text_loader.py</span>)</td>
+              <td class="num">—</td>
+              <td>Splits on blank lines; falls back to one-paragraph-per-line for line-based OCR exports with no blank-line breaks</td>
+              <td><span class="pill done">live</span></td>
+            </tr>
+            <tr>
               <td>Ingestion (PDF)</td>
               <td>PyMuPDF (<span class="mono-inline">pymupdf</span>)</td>
               <td class="num">1.28.2</td>
@@ -413,11 +437,11 @@
               <td><span class="pill planned">deferred</span></td>
             </tr>
             <tr>
-              <td>Ingestion (plain text)</td>
-              <td>—</td>
+              <td>Metadata extraction</td>
+              <td>OpenRouter — <span class="mono-inline">openai/gpt-4o-mini</span></td>
               <td class="num">—</td>
-              <td>No <span class="mono-inline">.txt</span> loader yet; dispatch seam documented in <span class="path">pipeline/ingest.py</span></td>
-              <td><span class="pill planned">planned</span></td>
+              <td>Reads the book's opening ~1,500 chars, extracts title/author; falls back to filename/"Unknown" on failure — never blocks ingestion</td>
+              <td><span class="pill done">live</span></td>
             </tr>
             <tr>
               <td>Chunking</td>
@@ -427,66 +451,101 @@
               <td><span class="pill done">live</span></td>
             </tr>
             <tr>
-              <td>Embedding model</td>
+              <td>Dense embedding</td>
               <td>sentence-transformers · BAAI/bge-m3</td>
               <td class="num">6.0.1</td>
               <td>Multilingual sentence embeddings; confirmed to handle Kannada well</td>
               <td><span class="pill done">live</span></td>
             </tr>
             <tr>
+              <td>Sparse embedding</td>
+              <td>fastembed · Qdrant/bm25</td>
+              <td class="num">0.8.1</td>
+              <td>Local BM25-style sparse vectors for lexical/exact-term matching</td>
+              <td><span class="pill done">live</span></td>
+            </tr>
+            <tr>
               <td>Embedding runtime</td>
               <td>PyTorch</td>
               <td class="num">2.11.0+cu128</td>
-              <td>CUDA if available, otherwise CPU</td>
+              <td>CUDA if available, otherwise CPU — GPU is shared with other processes on this host and can OOM under contention</td>
               <td><span class="pill done">live</span></td>
             </tr>
             <tr>
               <td>Vector / search DB</td>
-              <td>ChromaDB (PersistentClient)</td>
-              <td class="num">1.5.9</td>
-              <td>Local, file-persisted at <span class="path">data/index/chroma/</span>; cosine similarity; one collection across all books, filterable by <span class="mono-inline">book_id</span></td>
+              <td>Qdrant</td>
+              <td class="num">1.19.1</td>
+              <td>Docker-hosted; <strong>hybrid</strong> collection (named <span class="mono-inline">dense</span> + <span class="mono-inline">sparse</span> vectors, RRF fusion); accessed via a stable alias so schema migrations don't touch calling code</td>
               <td><span class="pill done">live</span></td>
             </tr>
             <tr>
               <td>Retrieval</td>
               <td>Custom (<span class="path">retrieval/search.py</span>)</td>
               <td class="num">—</td>
-              <td>Embeds the question, queries Chroma, returns ranked chunks with metadata</td>
+              <td>Embeds the question (dense+sparse), queries Qdrant with native RRF fusion, returns ranked chunks with metadata</td>
               <td><span class="pill done">live</span></td>
             </tr>
             <tr>
               <td>Reranking</td>
-              <td>Pass-through stub (<span class="path">retrieval/reranker.py</span>)</td>
+              <td>Cross-encoder — BAAI/bge-reranker-v2-m3</td>
               <td class="num">—</td>
-              <td>Truncates vector-ranked results to top-n; no cross-encoder scoring yet</td>
-              <td><span class="pill stub">stub</span></td>
+              <td>Real reranking (no longer a stub): scores every (question, chunk) pair, re-sorts</td>
+              <td><span class="pill done">live</span></td>
+            </tr>
+            <tr>
+              <td>Routing</td>
+              <td>Custom (<span class="path">routing/router.py</span>)</td>
+              <td class="num">—</td>
+              <td>Heuristic (Kannada question-word markers) + embedding-cosine similarity, zero extra LLM/embedding calls; picks top_k/top_n and whether expansion/self-critique run</td>
+              <td><span class="pill done">live</span></td>
+            </tr>
+            <tr>
+              <td>Query expansion</td>
+              <td>OpenRouter — <span class="mono-inline">openai/gpt-4o-mini</span></td>
+              <td class="num">—</td>
+              <td>"Complex"-routed questions only: paraphrase variants, merged via manual RRF</td>
+              <td><span class="pill done">live</span></td>
             </tr>
             <tr>
               <td>Generation</td>
               <td>OpenRouter API — <span class="mono-inline">openai/gpt-4o-mini</span></td>
               <td class="num">—</td>
-              <td>Chat completion over HTTPS via <span class="mono-inline">requests</span>, grounded strictly on retrieved chunks</td>
+              <td>Chat completion via <span class="mono-inline">requests</span>, <span class="mono-inline">max_tokens</span> explicitly capped (1024), streamed on the fast path</td>
               <td><span class="pill done">live</span></td>
             </tr>
             <tr>
-              <td>HTTP client</td>
-              <td>requests</td>
-              <td class="num">2.34.2</td>
-              <td>Used for the OpenRouter call</td>
+              <td>Self-critique agent</td>
+              <td>Custom (<span class="path">pipeline/agent.py</span>)</td>
+              <td class="num">—</td>
+              <td>Bounded 3-iteration loop: generate → critique groundedness → broaden retrieval → rewrite query → retry</td>
               <td><span class="pill done">live</span></td>
             </tr>
             <tr>
-              <td>Secrets</td>
-              <td>python-dotenv</td>
-              <td class="num">1.2.3</td>
-              <td>Loads <span class="mono-inline">OPENROUTER_API_KEY</span> from a local, git-ignored <span class="path">.env</span></td>
+              <td>Caching</td>
+              <td>SQLite (<span class="path">cache/store.py</span>)</td>
+              <td class="num">stdlib</td>
+              <td>Keyed by normalized question + book filter + top_k/top_n + route; skips the whole pipeline on a hit</td>
               <td><span class="pill done">live</span></td>
+            </tr>
+            <tr>
+              <td>Observability</td>
+              <td>JSONL (<span class="path">observability/logger.py</span>)</td>
+              <td class="num">—</td>
+              <td>Per-query log: route, retrieved/reranked chunk IDs, latency breakdown, cache hit, errors</td>
+              <td><span class="pill done">live</span></td>
+            </tr>
+            <tr>
+              <td>Offline eval</td>
+              <td>RAGAS</td>
+              <td class="num">0.4.3</td>
+              <td>Faithfulness / relevancy / context precision (LLM-judged) + ID-based precision/recall (free, exact)</td>
+              <td><span class="pill stub">needs credits</span></td>
             </tr>
             <tr>
               <td>User interface</td>
               <td>Streamlit</td>
               <td class="num">1.64.0</td>
-              <td>Question box, per-book filter, top-k/top-n controls, answer + expandable sources</td>
+              <td>Multipage app: landing page + separate Ingest page + separate Ask page</td>
               <td><span class="pill done">live</span></td>
             </tr>
           </tbody>
@@ -496,99 +555,89 @@
 
     <section id="workflow">
       <div class="label">03 · Architecture &amp; workflow</div>
-      <h2>How a question gets answered</h2>
-      <p>Two flows meet at the vector database. Books are ingested once, offline, into a shared index; each question then queries that same index at ask-time.</p>
+      <h2>Two pipelines, one shared index</h2>
+      <p>The dataset pipeline fills a shared hybrid Qdrant collection offline (or on-demand via the Ingest page). The query pipeline queries that same collection at ask-time. The router is the fork point: simple questions take the fast streaming path; open-ended questions get a bounded self-critique loop that can broaden retrieval and rewrite the query.</p>
 
       <figure class="panel diagram-wrap">
-        <svg viewBox="0 0 900 430" role="img" aria-label="Diagram: DOCX files flow through a loader, chunker, and embedder into a shared Chroma vector database. Separately, a user's Kannada question and the vector database both feed into retrieval, which passes its top candidates through a pass-through reranker stub, a prompt builder, an OpenRouter LLM call, and out as a cited answer.">
+        <svg viewBox="0 0 940 400" role="img" aria-label="Diagram: a dataset pipeline turns a docx or txt file into dense and sparse vectors stored in a shared Qdrant hybrid collection. A separate query pipeline embeds and routes each question, checks a cache, retrieves and reranks against the same Qdrant collection, then generates an answer -- looping back to retrieve and rerank up to three times if a self-critique check finds the answer ungrounded.">
           <defs>
-            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <marker id="arrow2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <polygon points="0,0 10,5 0,10" fill="currentColor"></polygon>
             </marker>
           </defs>
 
-          <!-- top row: ingestion -->
+          <text x="25" y="22" font-family="Work Sans, sans-serif" font-size="10.5" font-weight="600" letter-spacing="0.06em" fill="currentColor" opacity="0.65">DATASET PIPELINE — 📥 INGEST</text>
+
           <g font-family="Work Sans, sans-serif">
-            <rect x="45" y="40" width="180" height="62" rx="8" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
-            <text x="135" y="65" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">DOCX files</text>
-            <text x="135" y="83" text-anchor="middle" font-size="10.5" fill="currentColor" opacity="0.65">data/input/*.docx</text>
+            <rect x="25" y="34" width="150" height="64" rx="8" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
+            <text x="100" y="60" text-anchor="middle" font-size="12.5" font-weight="600" fill="currentColor">Book file</text>
+            <text x="100" y="76" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.65">.docx or .txt</text>
 
-            <rect x="250" y="40" width="180" height="62" rx="8" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
-            <text x="340" y="61" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Loader + Chunker</text>
-            <text x="340" y="76" text-anchor="middle" font-size="10.5" fill="currentColor" opacity="0.65">docx_loader.py</text>
-            <text x="340" y="89" text-anchor="middle" font-size="10.5" fill="currentColor" opacity="0.65">chunker.py</text>
+            <rect x="195" y="34" width="150" height="64" rx="8" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
+            <text x="270" y="56" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">Loader + Chunker</text>
+            <text x="270" y="71" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">docx_loader / text_loader</text>
+            <text x="270" y="84" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">chunker.py</text>
 
-            <rect x="455" y="40" width="180" height="62" rx="8" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
-            <text x="545" y="65" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Embed (bge-m3)</text>
-            <text x="545" y="83" text-anchor="middle" font-size="10.5" fill="currentColor" opacity="0.65">embeddings/model.py</text>
+            <rect x="365" y="34" width="150" height="64" rx="8" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
+            <text x="440" y="56" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">Extract metadata</text>
+            <text x="440" y="71" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">LLM reads title page</text>
+            <text x="440" y="84" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">falls back to filename</text>
 
-            <rect x="660" y="40" width="180" height="62" rx="8" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.4"></rect>
-            <text x="750" y="65" text-anchor="middle" font-size="13" font-weight="600" fill="var(--accent)">Chroma vector DB</text>
-            <text x="750" y="83" text-anchor="middle" font-size="10.5" fill="var(--accent)" opacity="0.8">data/index/chroma/</text>
+            <rect x="535" y="34" width="150" height="64" rx="8" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
+            <text x="610" y="60" text-anchor="middle" font-size="12.5" font-weight="600" fill="currentColor">Embed</text>
+            <text x="610" y="76" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.65">dense (bge-m3) + sparse (BM25)</text>
 
-            <line x1="227" y1="71" x2="248" y2="71" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"></line>
-            <text x="237" y="60" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">raw text</text>
+            <rect x="705" y="34" width="150" height="64" rx="8" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.4"></rect>
+            <text x="780" y="60" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--accent)">Qdrant hybrid</text>
+            <text x="780" y="76" text-anchor="middle" font-size="10" fill="var(--accent)" opacity="0.85">dense + sparse, RRF</text>
 
-            <line x1="432" y1="71" x2="453" y2="71" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"></line>
-            <text x="442" y="30" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">chunks</text>
-            <text x="442" y="42" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">(JSONL)</text>
-
-            <line x1="637" y1="71" x2="658" y2="71" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"></line>
-            <text x="647" y="30" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">vectors +</text>
-            <text x="647" y="42" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">metadata</text>
+            <line x1="177" y1="66" x2="193" y2="66" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow2)"></line>
+            <line x1="347" y1="66" x2="363" y2="66" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow2)"></line>
+            <line x1="517" y1="66" x2="533" y2="66" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow2)"></line>
+            <line x1="687" y1="66" x2="703" y2="66" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow2)"></line>
           </g>
 
-          <!-- user question -->
-          <g font-family="Work Sans, sans-serif">
-            <rect x="35" y="215" width="150" height="52" rx="8" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="0"></rect>
-            <text x="110" y="238" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">User question</text>
-            <text x="110" y="253" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.65" class="kn">ಕನ್ನಡದಲ್ಲಿ</text>
+          <polyline points="780,98 780,190 440,190 440,214" fill="none" stroke="var(--accent)" stroke-width="1.3" marker-end="url(#arrow2)"></polyline>
+          <text x="610" y="184" text-anchor="middle" font-size="9.5" fill="var(--accent)" font-family="Work Sans, sans-serif">hybrid search (query-time)</text>
 
-            <line x1="110" y1="267" x2="110" y2="318" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"></line>
+          <text x="25" y="202" font-family="Work Sans, sans-serif" font-size="10.5" font-weight="600" letter-spacing="0.06em" fill="currentColor" opacity="0.65">QUERY PIPELINE — 🔎 ASK</text>
+
+          <g font-family="Work Sans, sans-serif">
+            <rect x="25" y="214" width="150" height="64" rx="8" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
+            <text x="100" y="240" text-anchor="middle" font-size="12.5" font-weight="600" fill="currentColor">Question</text>
+            <text x="100" y="256" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.65" class="kn">ಕನ್ನಡದಲ್ಲಿ</text>
+
+            <rect x="195" y="214" width="150" height="64" rx="8" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
+            <text x="270" y="236" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">Route + Cache</text>
+            <text x="270" y="251" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">heuristic + cosine sim</text>
+            <text x="270" y="264" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">SQLite key lookup</text>
+
+            <rect x="365" y="214" width="150" height="64" rx="8" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
+            <text x="440" y="236" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">Retrieve + Rerank</text>
+            <text x="440" y="251" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">hybrid RRF</text>
+            <text x="440" y="264" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">cross-encoder</text>
+
+            <rect x="535" y="214" width="150" height="64" rx="8" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
+            <text x="610" y="236" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">Generate</text>
+            <text x="610" y="251" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">OpenRouter</text>
+            <text x="610" y="264" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">stream (simple) or checked (complex)</text>
+
+            <rect x="705" y="214" width="150" height="64" rx="8" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.2"></rect>
+            <text x="780" y="240" text-anchor="middle" font-size="12.5" font-weight="600" fill="currentColor">Answer</text>
+            <text x="780" y="256" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.65">+ citations</text>
+
+            <line x1="177" y1="246" x2="193" y2="246" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow2)"></line>
+            <line x1="347" y1="246" x2="363" y2="246" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow2)"></line>
+            <line x1="517" y1="246" x2="533" y2="246" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow2)"></line>
+            <line x1="687" y1="246" x2="703" y2="246" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow2)"></line>
           </g>
 
-          <!-- chroma to retrieval elbow -->
-          <polyline points="750,102 750,290 170,290 170,318" fill="none" stroke="var(--accent)" stroke-width="1.3" marker-end="url(#arrow)"></polyline>
-          <text x="460" y="283" text-anchor="middle" font-size="9.5" fill="var(--accent)" font-family="Work Sans, sans-serif">nearest chunks (query-time)</text>
+          <path d="M 610 278 C 610 330, 440 330, 440 280" fill="none" stroke="var(--warm)" stroke-width="1.3" stroke-dasharray="5 3" marker-end="url(#arrow2)"></path>
+          <text x="525" y="352" text-anchor="middle" font-size="9.5" fill="var(--warm)" font-family="Work Sans, sans-serif">complex only, ≤3×: ungrounded → broaden filter/top_k → rewrite query → retry</text>
 
-          <!-- bottom row: query pipeline -->
-          <g font-family="Work Sans, sans-serif">
-            <rect x="35" y="320" width="150" height="62" rx="8" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
-            <text x="110" y="345" text-anchor="middle" font-size="12.5" font-weight="600" fill="currentColor">Retrieval</text>
-            <text x="110" y="361" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.65">search.py · top-k</text>
-
-            <rect x="205" y="320" width="150" height="62" rx="8" fill="var(--warm-soft)" stroke="var(--warm)" stroke-width="1.3" stroke-dasharray="5 3"></rect>
-            <text x="280" y="341" text-anchor="middle" font-size="12" font-weight="600" fill="var(--warm)">Reranker</text>
-            <text x="280" y="356" text-anchor="middle" font-size="9.5" fill="var(--warm)" opacity="0.9">pass-through</text>
-            <text x="280" y="369" text-anchor="middle" font-size="9.5" fill="var(--warm)" opacity="0.9">stub</text>
-
-            <rect x="375" y="320" width="150" height="62" rx="8" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
-            <text x="450" y="345" text-anchor="middle" font-size="12.5" font-weight="600" fill="currentColor">Prompt</text>
-            <text x="450" y="361" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.65">generation/prompt.py</text>
-
-            <rect x="545" y="320" width="150" height="62" rx="8" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
-            <text x="620" y="341" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">LLM call</text>
-            <text x="620" y="356" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">OpenRouter</text>
-            <text x="620" y="369" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">gpt-4o-mini</text>
-
-            <rect x="715" y="320" width="150" height="62" rx="8" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.2"></rect>
-            <text x="790" y="345" text-anchor="middle" font-size="12.5" font-weight="600" fill="currentColor">Answer</text>
-            <text x="790" y="361" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.65">+ citations</text>
-
-            <line x1="187" y1="351" x2="203" y2="351" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"></line>
-            <text x="195" y="400" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">top-10/20</text>
-
-            <line x1="357" y1="351" x2="373" y2="351" stroke="var(--warm)" stroke-width="1.2" marker-end="url(#arrow)"></line>
-            <text x="365" y="400" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">top-3/5</text>
-
-            <line x1="527" y1="351" x2="543" y2="351" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"></line>
-            <text x="535" y="400" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">prompt text</text>
-
-            <line x1="697" y1="351" x2="713" y2="351" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrow)"></line>
-            <text x="705" y="400" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.65">answer</text>
-          </g>
+          <text x="270" y="298" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.55" font-family="Work Sans, sans-serif">(cache hit → skip straight to Answer)</text>
         </svg>
-        <figcaption>Ingestion (top) fills one shared Chroma collection offline. At query time (bottom), a question and the same collection both feed <em>Retrieval</em>; results pass through today's pass-through reranker stub (dashed, amber) before the prompt is built and sent to the LLM.</figcaption>
+        <figcaption>Top: the dataset pipeline (Ingest page) fills one shared hybrid Qdrant collection. Bottom: the query pipeline (Ask page) embeds and routes each question once, checks the cache, then either streams straight through (simple) or loops back through retrieval up to three times if its own critique finds the answer ungrounded (complex, dashed amber).</figcaption>
       </figure>
     </section>
 
@@ -596,164 +645,212 @@
       <div class="label">04 · Pipeline stages</div>
       <h2>Stage by stage</h2>
       <div class="stage-grid">
+        <div class="stage-group-label">Dataset pipeline</div>
         <div class="panel stage-card">
           <span class="stage-num">01</span>
           <h3>Ingest</h3>
-          <p>Reads a <span class="mono-inline">.docx</span>, walks paragraphs, detects Word page-break XML markers to group text into pages. Writes canonical JSON to <span class="path">data/processed/&lt;book_id&gt;.json</span>.</p>
-          <p class="path">src/ingestion/docx_loader.py</p>
+          <p><span class="mono-inline">.docx</span> (page-break-aware) or <span class="mono-inline">.txt</span> (blank-line paragraphs, falls back to one-per-line for line-based OCR dumps).</p>
+          <p class="path">src/ingestion/docx_loader.py, text_loader.py</p>
         </div>
         <div class="panel stage-card">
           <span class="stage-num">02</span>
-          <h3>Chunk</h3>
-          <p>Greedily groups consecutive paragraphs into 1000–1500 character chunks, preferring paragraph boundaries, no overlap. Writes <span class="path">data/chunks/&lt;book_id&gt;.jsonl</span>.</p>
-          <p class="path">src/ingestion/chunker.py</p>
+          <h3>Extract metadata</h3>
+          <p>Best-effort title/author from the book's own opening text via the LLM; never blocks ingestion if it fails.</p>
+          <p class="path">src/ingestion/metadata_extraction.py</p>
         </div>
         <div class="panel stage-card">
           <span class="stage-num">03</span>
-          <h3>Embed &amp; index</h3>
-          <p>Encodes every chunk with bge-m3 and upserts into Chroma, keyed by <span class="mono-inline">chunk_id</span> — safe to re-run without duplicating vectors.</p>
-          <p class="path">src/embeddings/embed.py</p>
+          <h3>Chunk</h3>
+          <p>Greedily groups paragraphs into 1000–1500 char chunks, paragraph boundaries preserved, no overlap.</p>
+          <p class="path">src/ingestion/chunker.py</p>
         </div>
         <div class="panel stage-card">
           <span class="stage-num">04</span>
-          <h3>Retrieve</h3>
-          <p>Embeds the question with the same model, queries Chroma for the top-k nearest chunks (cosine), optionally scoped to one <span class="mono-inline">book_id</span>.</p>
-          <p class="path">src/retrieval/search.py</p>
+          <h3>Embed &amp; index</h3>
+          <p>Dense (bge-m3) + sparse (BM25) per chunk, upserted in crash-safe batches of 64 (deterministic point IDs).</p>
+          <p class="path">src/embeddings/model.py, embed.py</p>
         </div>
+
+        <div class="stage-group-label">Query pipeline</div>
         <div class="panel stage-card">
           <span class="stage-num">05</span>
-          <h3>Rerank <span class="pill stub">stub</span></h3>
-          <p>Currently just truncates the vector-ranked list to top-n. Signature is stable so a real cross-encoder can drop in later without touching callers.</p>
-          <p class="path">src/retrieval/reranker.py</p>
+          <h3>Route</h3>
+          <p>Classifies complexity from Kannada question-word markers + cosine similarity to reference questions — no extra model call.</p>
+          <p class="path">src/routing/router.py</p>
         </div>
         <div class="panel stage-card">
           <span class="stage-num">06</span>
-          <h3>Prompt</h3>
-          <p>Builds a Kannada system instruction plus labeled source blocks (title, author, page range, chunk id) and the question.</p>
-          <p class="path">src/generation/prompt.py</p>
+          <h3>Retrieve</h3>
+          <p>Hybrid dense+sparse search via Qdrant's native RRF fusion, optionally scoped to one book.</p>
+          <p class="path">src/retrieval/search.py</p>
         </div>
         <div class="panel stage-card">
           <span class="stage-num">07</span>
-          <h3>Generate</h3>
-          <p>Calls OpenRouter's chat completions endpoint with <span class="mono-inline">openai/gpt-4o-mini</span>, grounded strictly on the passed chunks.</p>
-          <p class="path">src/generation/llm.py</p>
+          <h3>Rerank</h3>
+          <p>Real cross-encoder (BAAI/bge-reranker-v2-m3) scores and re-sorts every candidate — no longer a stub.</p>
+          <p class="path">src/retrieval/reranker.py</p>
         </div>
         <div class="panel stage-card">
           <span class="stage-num">08</span>
-          <h3>Serve</h3>
-          <p>Streamlit app wraps the whole chain: question box, book filter, top-k/top-n sliders, answer, and expandable cited sources.</p>
-          <p class="path">app.py</p>
+          <h3>Expand <span class="pill stub">complex only</span></h3>
+          <p>Paraphrase/HyDE-style query variants, merged multi-query retrieval via RRF.</p>
+          <p class="path">src/retrieval/query_expansion.py</p>
+        </div>
+        <div class="panel stage-card">
+          <span class="stage-num">09</span>
+          <h3>Prompt</h3>
+          <p>Kannada system instructions (context-only; name the missing aspect explicitly rather than substitute) + labeled sources.</p>
+          <p class="path">src/generation/prompt.py</p>
+        </div>
+        <div class="panel stage-card">
+          <span class="stage-num">10</span>
+          <h3>Generate</h3>
+          <p>OpenRouter chat completion, <span class="mono-inline">max_tokens</span> capped, streaming or plain, with token-usage tracking.</p>
+          <p class="path">src/generation/llm.py</p>
+        </div>
+        <div class="panel stage-card">
+          <span class="stage-num">11</span>
+          <h3>Self-critique <span class="pill stub">complex only</span></h3>
+          <p>Up to 3 iterations: generate → LLM checks groundedness → broaden retrieval → rewrite query → retry.</p>
+          <p class="path">src/pipeline/agent.py</p>
+        </div>
+        <div class="panel stage-card">
+          <span class="stage-num">12</span>
+          <h3>Cache</h3>
+          <p>SQLite, keyed by normalized question + filters + route; skips the whole pipeline on a hit.</p>
+          <p class="path">src/cache/store.py</p>
+        </div>
+        <div class="panel stage-card">
+          <span class="stage-num">13</span>
+          <h3>Log</h3>
+          <p>JSONL, one line per query: route, chunk IDs, latency breakdown, cache hit, errors.</p>
+          <p class="path">src/observability/logger.py</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="ui">
+      <div class="label">05 · Two-pipeline UI</div>
+      <h2>One process, two pages</h2>
+      <p>A Streamlit multipage app — one running process (one shared, cached embedding model in memory, not duplicated across servers), two distinct pages in the sidebar.</p>
+      <div class="stage-grid">
+        <div class="panel stage-card">
+          <h3>📥 Ingest Data</h3>
+          <p>File uploader (<span class="mono-inline">.docx</span>/<span class="mono-inline">.txt</span> only), no manual fields. Runs the full dataset pipeline, shows a success summary with the <em>auto-extracted</em> title/author, or a clear error. Lists currently indexed books.</p>
+        </div>
+        <div class="panel stage-card">
+          <h3>🔎 Ask Questions</h3>
+          <p>Book filter, question box. Shows a route badge (simple/complex, cache hit, agent iteration count), streams the answer live on the fast path, shows cited sources in expandable panels.</p>
         </div>
       </div>
     </section>
 
     <section id="data">
-      <div class="label">05 · Indexed data</div>
+      <div class="label">06 · Indexed data</div>
       <h2>What's currently searchable</h2>
-      <p>All five books share one Chroma collection (<span class="mono-inline">kannada_chunks</span>), so a question searches across all of them unless scoped to one book in the UI.</p>
+      <p>All sources share one hybrid Qdrant collection (<span class="mono-inline">kannada_chunks</span>, currently an alias to <span class="mono-inline">kannada_chunks_v2</span>), so a question searches across everything unless scoped to one book.</p>
       <div class="panel scroll-x">
         <table>
           <thead>
-            <tr><th>Book ID</th><th>Title</th><th>Author</th><th class="num">Pages</th><th class="num">Chunks</th><th>Metadata</th></tr>
+            <tr><th>Source</th><th>Type</th><th class="num">Chunks</th><th>Notes</th></tr>
           </thead>
           <tbody>
-            <tr>
-              <td class="mono-inline">TK001</td>
-              <td>TK001 <em>(filename default)</em></td>
-              <td>Unknown</td>
-              <td class="num">384</td>
-              <td class="num">637</td>
-              <td><span class="pill stub">defaulted</span></td>
-            </tr>
-            <tr>
-              <td class="mono-inline">TK002</td>
-              <td>TK002 <em>(filename default)</em></td>
-              <td>Unknown</td>
-              <td class="num">367</td>
-              <td class="num">490</td>
-              <td><span class="pill stub">defaulted</span></td>
-            </tr>
-            <tr>
-              <td class="mono-inline">TK003</td>
-              <td class="kn">ಕರ್ತವ್ಯಾನಂದ ಶ್ರೀ ರಾಜ ಪುರೋಹಿತರು</td>
-              <td class="kn">ಶ್ರೀನಿವಾಸ ಹಾವನೂರ</td>
-              <td class="num">84</td>
-              <td class="num">86</td>
-              <td><span class="pill done">complete</span></td>
-            </tr>
-            <tr>
-              <td class="mono-inline">TK004</td>
-              <td>TK004 <em>(filename default)</em></td>
-              <td>Unknown</td>
-              <td class="num">210</td>
-              <td class="num">235</td>
-              <td><span class="pill stub">defaulted</span></td>
-            </tr>
-            <tr>
-              <td class="mono-inline">TK005</td>
-              <td>TK005 <em>(filename default)</em></td>
-              <td>Unknown</td>
-              <td class="num">240</td>
-              <td class="num">380</td>
-              <td><span class="pill stub">defaulted</span></td>
-            </tr>
+            <tr><td class="mono-inline">TK001</td><td>.docx</td><td class="num">637</td><td>Filename-default metadata</td></tr>
+            <tr><td class="mono-inline">TK002</td><td>.docx</td><td class="num">490</td><td class="kn">ಚೆನ್ನಬಸವನಾಯಕ — real title/author found on-page</td></tr>
+            <tr><td class="mono-inline">TK003</td><td>.docx</td><td class="num">86</td><td>Full metadata</td></tr>
+            <tr><td class="mono-inline">TK004</td><td>.docx</td><td class="num">235</td><td class="kn">ಖಗೇಂದ್ರಮಣಿದರ್ಪಣಂ by ಮಂಗರಸ — real title/author found on-page</td></tr>
+            <tr><td class="mono-inline">TK005</td><td>.docx</td><td class="num">380</td><td class="kn">ರಾಮಚರಿತ-ಮಾನಸ — real title/author found on-page</td></tr>
+            <tr><td class="mono-inline">FTS</td><td>.txt</td><td class="num">135</td><td class="kn">ವಿಜ್ಞಾನ ಕರ್ಣಾಟಕ magazine, line-based OCR dump — exercised the text-loader fallback</td></tr>
+            <tr><td class="mono-inline">TK006</td><td>.txt</td><td class="num">1</td><td>Small hand-written test file, not real content</td></tr>
           </tbody>
           <tfoot>
-            <tr>
-              <td colspan="3"><strong>Total</strong></td>
-              <td class="num"><strong>1,285</strong></td>
-              <td class="num"><strong>1,828</strong></td>
-              <td></td>
-            </tr>
+            <tr><td colspan="2"><strong>Total</strong></td><td class="num"><strong>1,964</strong></td><td></td></tr>
           </tfoot>
         </table>
       </div>
-      <p style="margin-top: 0.9rem; font-size: 0.9rem; color: var(--ink-muted);">Four books were ingested with filename-derived titles and no author, since real metadata wasn't supplied at ingest time. Re-running <span class="mono-inline">pipeline.ingest</span> with <span class="mono-inline">--title</span>/<span class="mono-inline">--author</span> overwrites this cleanly.</p>
     </section>
 
     <section id="quality">
-      <div class="label">06 · Retrieval quality</div>
-      <h2>How well retrieval performs</h2>
-      <p>Measured with the existing 15-question Kannada eval set (<span class="path">src/retrieval/evaluate.py</span>), run against <span class="mono-inline">TK003</span> only:</p>
-      <div class="kpi-row">
-        <div class="kpi"><span class="stat-value">66.7%</span><span class="label">Top-1 recall</span></div>
-        <div class="kpi"><span class="stat-value">80.0%</span><span class="label">Top-3 recall</span></div>
-        <div class="kpi"><span class="stat-value">80.0%</span><span class="label">Top-5 recall</span></div>
-        <div class="kpi"><span class="stat-value">0.724</span><span class="label">MRR</span></div>
+      <div class="label">07 · Retrieval quality</div>
+      <h2>Naive baseline vs. current pipeline</h2>
+      <p>Measured against the 15-question hand-labeled Kannada eval set (<span class="path">src/retrieval/evaluate.py</span>, <span class="mono-inline">TK003</span>-scoped):</p>
+      <div class="panel scroll-x">
+        <table>
+          <thead>
+            <tr><th>Metric</th><th>Naive (dense-only, no rerank)</th><th>Current (hybrid + cross-encoder rerank)</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Top-1 recall</td><td class="num">66.7%</td><td class="num"><strong>73.3%</strong></td></tr>
+            <tr><td>Top-3 recall</td><td class="num">80.0%</td><td class="num"><strong>93.3%</strong></td></tr>
+            <tr><td>Top-5 recall</td><td class="num">80.0%</td><td class="num"><strong>100.0%</strong></td></tr>
+            <tr><td>MRR</td><td class="num">0.724</td><td class="num"><strong>0.839</strong></td></tr>
+          </tbody>
+        </table>
       </div>
-      <p style="margin-top: 1rem;">These numbers come from a brute-force, in-memory baseline independent of Chroma. Cross-checked directly: the Chroma-backed <span class="path">pipeline/query.py</span> returns identical ranks and scores for the same questions, confirming the vector DB isn't degrading retrieval quality relative to that baseline.</p>
+      <p style="margin-top: 0.9rem;">Two questions (Q8, Q9) that dense-only search couldn't find <em>at all</em> were recovered by BM25 catching exact terms the embedding model missed.</p>
+
+      <h3>RAGAS (104 questions: 15 hand-labeled + 89 synthetic)</h3>
+      <div class="kpi-row">
+        <div class="kpi"><span class="stat-value">76.4%</span><span class="label">ID context recall (free)</span></div>
+        <div class="kpi"><span class="stat-value">16.2%</span><span class="label">ID context precision (free)</span></div>
+        <div class="kpi"><span class="stat-value">—</span><span class="label">Faithfulness (needs credits)</span></div>
+        <div class="kpi"><span class="stat-value">—</span><span class="label">Relevancy (needs credits)</span></div>
+      </div>
       <blockquote>
-        <p><strong>Known gap:</strong> the same evaluation surfaced a case where the correct passage was retrieved but the LLM answered a nearby-but-wrong aspect of it (asked <em>where</em> someone was born, answered <em>when</em>). The book itself never states the place explicitly. Fixed by tightening the prompt's system instructions to require the model to name the specific missing aspect rather than substitute an adjacent fact — verified against both the failing and a working case.</p>
+        <p><strong>Precision looks low but isn't:</strong> most questions have exactly 1 ground-truth chunk among 5 returned, so the ceiling is ~20% even with perfect retrieval. 0.162/0.20 ≈ 81% of that ceiling, consistent with the 76.4% recall number.</p>
+      </blockquote>
+      <blockquote>
+        <p><strong>LLM-judged metrics invalid this run:</strong> the OpenRouter account ran out of credits mid-run — ~400+ judge calls failed with HTTP 402. Wiring confirmed correct on a 3-case dry run beforehand; needs a re-run with credits available.</p>
       </blockquote>
     </section>
 
+    <section id="fixes">
+      <div class="label">08 · Fixes made this pass</div>
+      <h2>Real bugs found and fixed</h2>
+      <p>Worth recording since they're not obvious from the code alone:</p>
+      <ul class="fixes">
+        <li><strong>Silent streaming failures</strong> — the query dispatcher hardcoded <span class="mono-inline">"error": None</span> on its streaming return, before the stream was consumed. An LLM failure mid-stream was logged to file but never shown in the UI. Fixed with a shared mutable error holder the UI checks after consuming the stream.</li>
+        <li><strong>Unhandled crashes on retrieval failures</strong> — only the final LLM call was error-guarded; a GPU OOM during embedding/search/rerank crashed the dispatcher entirely. Every stage is now guarded and degrades to a clean error message.</li>
+        <li><strong>402s despite having balance</strong> — requests with no explicit <span class="mono-inline">max_tokens</span> get OpenRouter's default ceiling (16k+), reserving more budget than a small balance can cover. Fixed by capping <span class="mono-inline">max_tokens=1024</span> on every call.</li>
+        <li><strong>.txt ingestion collapsing to one giant chunk</strong> — the loader only split on blank lines; a real OCR export with zero blank lines (711 single-newline lines) became one unsplittable ~390KB "paragraph." Fixed with a one-paragraph-per-line fallback.</li>
+        <li><strong>Streamed Kannada rendering as mojibake</strong> — <span class="mono-inline">requests</span>' auto encoding detection failed on the SSE stream (UTF-8 decoded as Latin-1). Fixed by decoding each line explicitly as UTF-8.</li>
+      </ul>
+    </section>
+
     <section id="limits">
-      <div class="label">07 · Limitations &amp; roadmap</div>
+      <div class="label">09 · Limitations &amp; roadmap</div>
       <h2>What's deliberately not done yet</h2>
       <ul class="limits">
-        <li><strong>Reranking is a stub.</strong> No cross-encoder is scoring candidates yet — result quality rests entirely on vector search. <span class="mono-inline">BAAI/bge-reranker-v2-m3</span> was evaluated and deferred by choice.</li>
-        <li><strong>PDF and plain-text ingestion aren't wired in.</strong> <span class="path">ingestion/pdf_parser.py</span> exists but produces a schema the chunker can't consume; a <span class="mono-inline">.txt</span> loader has a documented seam but no implementation.</li>
-        <li><strong>Four of five books carry placeholder metadata</strong> (title = filename, author = "Unknown") — cosmetic only, doesn't affect retrieval.</li>
-        <li><strong>No automated test suite yet</strong> — correctness has been checked via regression diffs and the eval script above, not <span class="mono-inline">pytest</span>.</li>
-        <li><strong>Single global collection by design</strong> — supports cross-book search now and per-book filtering already works via metadata; this is the intended shape for scaling toward 30,000 books, not a shortcut.</li>
+        <li><strong>PDF ingestion still deferred</strong> — <span class="path">ingestion/pdf_parser.py</span> exists but produces a schema the chunker can't consume.</li>
+        <li><strong>RAGAS LLM-judged metrics need a credits top-up</strong> to get a real reading — currently only the free ID-based metrics are valid.</li>
+        <li><strong>GPU is shared with other processes on this host</strong> — reranking/embedding can transiently OOM under contention; now degrades gracefully instead of crashing.</li>
+        <li><strong>Four of the original five books still carry filename-default metadata</strong> — the new auto-extraction will fix this on the next re-ingest once credits are available.</li>
+        <li><strong>Docker path exists but isn't the primary day-to-day run path</strong> — local <span class="mono-inline">.venv</span> + Docker-hosted Qdrant is what's actually being used and tested.</li>
       </ul>
     </section>
 
     <section id="reference">
-      <div class="label">08 · Quick reference</div>
+      <div class="label">10 · Quick reference</div>
       <h2>Common commands</h2>
-      <pre><code><span class="comment"># Add a new book (loads → chunks → embeds → indexes)</span>
-python -m src.pipeline.ingest data/input/NEWBOOK.docx \
-    --book-id NEWBOOK --title "..." --author "..."
+      <pre><code><span class="comment"># Add a new book (auto-extracts title/author, embeds, indexes)</span>
+python -m src.pipeline.ingest data/input/NEWBOOK.docx
+python -m src.pipeline.ingest data/input/newfile.txt
 
-<span class="comment"># Ask a question from the CLI</span>
+<span class="comment"># Ask a question from the CLI (fast path, no routing)</span>
 python -m src.pipeline.query "ನಿಮ್ಮ ಪ್ರಶ್ನೆ ಇಲ್ಲಿ"
 
-<span class="comment"># Launch the UI</span>
-streamlit run app.py</code></pre>
+<span class="comment"># Launch the two-page UI</span>
+streamlit run app.py
+
+<span class="comment"># Re-run the eval baseline</span>
+python -m src.retrieval.evaluate_pipeline
+
+<span class="comment"># Generate a fresh synthetic test set / run RAGAS</span>
+python -m src.eval.generate_testset
+python -m src.eval.ragas_eval</code></pre>
     </section>
 
   </main>
 
-  <footer>Kannada RAG — internal technical report, generated 2026-09-16.</footer>
+  <footer>Kannada RAG — internal technical report, generated 2026-09-23.</footer>
 </div>
