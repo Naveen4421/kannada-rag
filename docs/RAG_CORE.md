@@ -8,23 +8,23 @@ question -> Query Processor -> Router -> Cache
          -> Context Builder -> LLM -> Grounding Validator -> answer + citations
 ```
 
-Complex route wraps the same pipeline in `src/pipeline/agent.py` (bounded retries with logged reasons).
+Complex route wraps the same pipeline in `retrieval/pipeline/agent.py` (bounded retries with logged reasons).
 Simple route streams; grounding is checked after the stream (deterministic checks only, no retry).
 
 ## Modules
 | Stage | File |
 |---|---|
-| Query processing | `src/query_processing/processor.py` |
-| Retrieval, RRF | `src/retrieval/search.py`, `types.py` |
-| Rerank | `src/retrieval/reranker.py` |
-| Evidence | `src/evidence/{engine,scorer,agreement,citations}.py` |
-| Context/prompt | `src/generation/context_builder.py` |
-| Grounding | `src/validation/grounding.py` |
-| Shared retrieval half | `src/pipeline/rag_core.py` |
-| Agent | `src/pipeline/agent.py` |
-| Entry points | `src/pipeline/query.py` (`ask`, `answer_question`) |
-| Trace/log | `src/observability/trace.py`, `logger.py` (one JSONL line per query) |
-| Config | `src/config.py` (env-overridable) |
+| Query processing | `retrieval/query_processing/processor.py` |
+| Retrieval, RRF | `retrieval/retrieve/search.py`, `types.py` |
+| Rerank | `retrieval/retrieve/reranker.py` |
+| Evidence | `retrieval/evidence/{engine,scorer,agreement,citations}.py` |
+| Context/prompt | `retrieval/generation/context_builder.py` |
+| Grounding | `retrieval/validation/grounding.py` |
+| Shared retrieval half | `retrieval/pipeline/rag_core.py` |
+| Agent | `retrieval/pipeline/agent.py` |
+| Entry points | `retrieval/pipeline/query.py` (`ask`, `answer_question`) |
+| Trace/log | `retrieval/observability/trace.py`, `logger.py` (one JSONL line per query) |
+| Config | `retrieval/config.py` (env-overridable) |
 
 ## Evidence score
 `evidence_score = sum(w_i * c_i) / sum(w_i)` over available components (missing ones are dropped, never imputed):
@@ -32,7 +32,7 @@ Simple route streams; grounding is checked after the stream (deterministic check
 `source_quality` (0.5 metadata completeness + 0.5 text quality; uses `ocr_quality` from the payload if ingestion
 provides it, else the Kannada-letter share), `agreement` (0.5 neutral; up with independent supporting books; 0.2 on conflict).
 Default weights 0.15 / 0.45 / 0.15 / 0.25 (`EVID_W_*`). It is a heuristic strength signal, NOT a calibrated probability.
-All thresholds (`EVID_*`) are uncalibrated starting points: tune them on `src/eval/gold`.
+All thresholds (`EVID_*`) are uncalibrated starting points: tune them on `retrieval/eval/gold`.
 
 ## Agreement / conflict (heuristic, lexical)
 Independence is by `book_id`. Same-book passages are counted as `same_book_passages`, never as agreement.
@@ -50,7 +50,7 @@ No evidence after the last retrieval: the LLM is not called. Conflicting evidenc
 Key = normalised question + book filter + route + top_k + top_n. Each row also stores a **fingerprint** of what
 produced it: LLM model, embedding/sparse/reranker models, `PROMPT_VERSION`, retrieval and evidence config, agent config
 (complex route only) and the collection's chunk count. A fingerprint mismatch or age > `RAG_CACHE_MAX_AGE_DAYS` is a miss,
-so a change invalidates only the entries it affects. Bump `PROMPT_VERSION` in `src/config.py` when prompts change.
+so a change invalidates only the entries it affects. Bump `PROMPT_VERSION` in `retrieval/config.py` when prompts change.
 Ungrounded or degraded (reranker/channel fallback) answers are not cached. Rows written before this change have no
 fingerprint and are never served. Limit: re-ingesting a book without changing the total chunk count is not detected.
 
@@ -62,7 +62,7 @@ One failed retrieval channel degrades to the other and is reported in `warnings`
 ## Tests and evaluation
 ```
 pip install -r requirements-dev.txt && pytest          # no GPU/Qdrant needed (in-memory Qdrant)
-python -m src.eval.gold                                # re-verify the mechanical gold-set claims
-python -m src.eval.run_eval retrieval                  # needs Qdrant + models
-python -m src.eval.run_eval rag --limit 10             # needs Qdrant + models + OPENROUTER_API_KEY
+python -m retrieval.eval.gold                                # re-verify the mechanical gold-set claims
+python -m retrieval.eval.run_eval retrieval                  # needs Qdrant + models
+python -m retrieval.eval.run_eval rag --limit 10             # needs Qdrant + models + OPENROUTER_API_KEY
 ```

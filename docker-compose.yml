@@ -31,7 +31,7 @@ services:
     depends_on:
       qdrant:
         condition: service_healthy
-    command: ["python", "-m", "src.embeddings.embed"]
+    command: ["python", "-m", "ingestion.embed"]
 
   app:
     build:

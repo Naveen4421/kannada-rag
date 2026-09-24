@@ -1,6 +1,6 @@
 import streamlit as st
 
-from src.pipeline.catalog import list_books
+from common.catalog import list_books
 
 
 st.set_page_config(page_title="Kannada RAG", page_icon="📚")

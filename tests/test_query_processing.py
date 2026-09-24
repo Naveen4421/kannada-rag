@@ -1,6 +1,6 @@
 import unicodedata
 
-from src.query_processing.processor import detect_intent, detect_language, normalize_text, process_query
+from retrieval.query_processing.processor import detect_intent, detect_language, normalize_text, process_query
 
 
 def test_original_is_preserved_and_normalized_is_separate():

@@ -1,6 +1,6 @@
 import numpy as np
 
-from src.routing import router
+from retrieval.routing import router
 
 
 def test_router_diagnostics(monkeypatch):

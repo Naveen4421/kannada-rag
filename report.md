@@ -91,19 +91,19 @@ Pipeline 1 fills the shared Qdrant collection offline (or on-demand via the Inge
 
 | # | Stage | What it does | File |
 |---|---|---|---|
-| 01 | Ingest | Reads `.docx` (page-break-aware) or `.txt` (blank-line paragraphs, falling back to one-per-line for line-based OCR dumps). Writes canonical JSON. | `src/ingestion/docx_loader.py`, `src/ingestion/text_loader.py` |
-| 02 | Extract metadata | Best-effort title/author from the book's own opening text via the LLM; never blocks ingestion if it fails. | `src/ingestion/metadata_extraction.py` |
-| 03 | Chunk | Greedily groups paragraphs into 1000–1500 char chunks, paragraph boundaries preserved, no overlap. | `src/ingestion/chunker.py` |
-| 04 | Embed & index | Encodes every chunk with both bge-m3 (dense) and Qdrant/bm25 (sparse), upserts in batches of 64 (crash-safe/idempotent — deterministic point IDs). | `src/embeddings/model.py`, `src/embeddings/embed.py` |
-| 05 | Route | Classifies question complexity from Kannada question-word markers + cosine similarity to reference questions — no extra model call. | `src/routing/router.py` |
-| 06 | Retrieve | Hybrid dense+sparse search via Qdrant's native RRF fusion, optionally scoped to one `book_id`. | `src/retrieval/search.py` |
-| 07 | Rerank | Real cross-encoder (BAAI/bge-reranker-v2-m3) scores and re-sorts every candidate. | `src/retrieval/reranker.py`, `src/reranker/model.py` |
-| 08 | Expand (complex only) | Generates paraphrase/HyDE-style query variants, merges multi-query retrieval via RRF. | `src/retrieval/query_expansion.py` |
-| 09 | Prompt | Kannada system instructions (answer only from context; if a specific asked aspect is missing, say so explicitly rather than substituting an adjacent fact) + labeled source blocks + question. | `src/generation/prompt.py` |
-| 10 | Generate | OpenRouter chat completion, `max_tokens` capped, streaming or plain, with token-usage tracking. | `src/generation/llm.py` |
-| 11 | Self-critique (complex only) | Up to 3 iterations: generate → LLM checks groundedness → broaden retrieval (drop book filter, double top_k/top_n) → rewrite query → retry. Always returns its best attempt at the cap. | `src/pipeline/agent.py` |
-| 12 | Cache | SQLite, keyed by normalized question + filters + route; skips the whole pipeline on a hit. | `src/cache/store.py` |
-| 13 | Log | JSONL, one line per query: route, chunk IDs, latency breakdown, cache hit, errors. | `src/observability/logger.py` |
+| 01 | Ingest | Reads `.docx` (page-break-aware) or `.txt` (blank-line paragraphs, falling back to one-per-line for line-based OCR dumps). Writes canonical JSON. | `ingestion/docx_loader.py`, `ingestion/text_loader.py` |
+| 02 | Extract metadata | Best-effort title/author from the book's own opening text via the LLM; never blocks ingestion if it fails. | `ingestion/metadata_extraction.py` |
+| 03 | Chunk | Greedily groups paragraphs into 1000–1500 char chunks, paragraph boundaries preserved, no overlap. | `ingestion/chunker.py` |
+| 04 | Embed & index | Encodes every chunk with both bge-m3 (dense) and Qdrant/bm25 (sparse), upserts in batches of 64 (crash-safe/idempotent — deterministic point IDs). | `common/embedding_model.py`, `ingestion/embed.py` |
+| 05 | Route | Classifies question complexity from Kannada question-word markers + cosine similarity to reference questions — no extra model call. | `retrieval/routing/router.py` |
+| 06 | Retrieve | Hybrid dense+sparse search via Qdrant's native RRF fusion, optionally scoped to one `book_id`. | `retrieval/retrieve/search.py` |
+| 07 | Rerank | Real cross-encoder (BAAI/bge-reranker-v2-m3) scores and re-sorts every candidate. | `retrieval/retrieve/reranker.py`, `retrieval/retrieve/reranker_model.py` |
+| 08 | Expand (complex only) | Generates paraphrase/HyDE-style query variants, merges multi-query retrieval via RRF. | `retrieval/retrieve/query_expansion.py` |
+| 09 | Prompt | Kannada system instructions (answer only from context; if a specific asked aspect is missing, say so explicitly rather than substituting an adjacent fact) + labeled source blocks + question. | `retrieval/generation/prompt.py` |
+| 10 | Generate | OpenRouter chat completion, `max_tokens` capped, streaming or plain, with token-usage tracking. | `common/llm.py` |
+| 11 | Self-critique (complex only) | Up to 3 iterations: generate → LLM checks groundedness → broaden retrieval (drop book filter, double top_k/top_n) → rewrite query → retry. Always returns its best attempt at the cap. | `retrieval/pipeline/agent.py` |
+| 12 | Cache | SQLite, keyed by normalized question + filters + route; skips the whole pipeline on a hit. | `retrieval/cache/store.py` |
+| 13 | Log | JSONL, one line per query: route, chunk IDs, latency breakdown, cache hit, errors. | `retrieval/observability/logger.py` |
 | 14 | Serve | Two-page Streamlit app (see §5). | `app.py`, `pages/*.py` |
 
 ---
@@ -137,7 +137,7 @@ All sources share one hybrid Qdrant collection (`kannada_chunks`, currently an a
 
 ## 7. Retrieval quality
 
-Measured against the 15-question hand-labeled Kannada eval set (`src/retrieval/evaluate.py`, `TK003`-scoped), comparing the current hybrid+rerank pipeline against the original naive baseline:
+Measured against the 15-question hand-labeled Kannada eval set (`retrieval/eval/evaluate.py`, `TK003`-scoped), comparing the current hybrid+rerank pipeline against the original naive baseline:
 
 | Metric | Naive (dense-only, no rerank) | Current (hybrid dense+BM25 + cross-encoder rerank) |
 |---|---|---|
@@ -148,7 +148,7 @@ Measured against the 15-question hand-labeled Kannada eval set (`src/retrieval/e
 
 Notably, two questions (Q8, Q9) that dense-only search couldn't find **at all** were recovered by BM25 catching exact terms the embedding model missed.
 
-A larger, synthetic 89-question set (`src/eval/generate_testset.py`, ~18 questions per book, LLM-generated from sampled chunks with the source chunk as ground truth) plus the 15 hand-labeled ones were run through RAGAS (`src/eval/ragas_eval.py`, 104 total questions):
+A larger, synthetic 89-question set (`retrieval/eval/generate_testset.py`, ~18 questions per book, LLM-generated from sampled chunks with the source chunk as ground truth) plus the 15 hand-labeled ones were run through RAGAS (`retrieval/eval/ragas_eval.py`, 104 total questions):
 
 | Metric | Result | Note |
 |---|---|---|
@@ -184,21 +184,21 @@ Real bugs found and fixed while hardening the pipeline, worth recording since th
 
 ```bash
 # Add a new book (auto-extracts title/author, embeds, indexes)
-python -m src.pipeline.ingest data/input/NEWBOOK.docx
-python -m src.pipeline.ingest data/input/newfile.txt
+python -m ingestion.ingest data/input/NEWBOOK.docx
+python -m ingestion.ingest data/input/newfile.txt
 
 # Ask a question from the CLI (fast path, no routing)
-python -m src.pipeline.query "ನಿಮ್ಮ ಪ್ರಶ್ನೆ ಇಲ್ಲಿ"
+python -m retrieval.pipeline.query "ನಿಮ್ಮ ಪ್ರಶ್ನೆ ಇಲ್ಲಿ"
 
 # Launch the two-page UI
 streamlit run app.py
 
 # Re-run the eval baseline
-python -m src.retrieval.evaluate_pipeline
+python -m retrieval.eval.evaluate_pipeline
 
 # Generate a fresh synthetic test set / run RAGAS
-python -m src.eval.generate_testset
-python -m src.eval.ragas_eval
+python -m retrieval.eval.generate_testset
+python -m retrieval.eval.ragas_eval
 ```
 
 ---

@@ -1,8 +1,8 @@
 import pytest
 
-from src.config import RetrievalConfig
-from src.pipeline.errors import StageError
-from src.retrieval.search import build_filter, hybrid_search, rrf_fuse
+from retrieval.config import RetrievalConfig
+from retrieval.pipeline.errors import StageError
+from retrieval.retrieve.search import build_filter, hybrid_search, rrf_fuse
 from tests.conftest import sparse
 
 

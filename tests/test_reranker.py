@@ -1,4 +1,4 @@
-from src.retrieval.reranker import normalize_score, rerank, rerank_with_info
+from retrieval.retrieve.reranker import normalize_score, rerank, rerank_with_info
 
 
 def cands():

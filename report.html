@@ -650,25 +650,25 @@
           <span class="stage-num">01</span>
           <h3>Ingest</h3>
           <p><span class="mono-inline">.docx</span> (page-break-aware) or <span class="mono-inline">.txt</span> (blank-line paragraphs, falls back to one-per-line for line-based OCR dumps).</p>
-          <p class="path">src/ingestion/docx_loader.py, text_loader.py</p>
+          <p class="path">ingestion/docx_loader.py, text_loader.py</p>
         </div>
         <div class="panel stage-card">
           <span class="stage-num">02</span>
           <h3>Extract metadata</h3>
           <p>Best-effort title/author from the book's own opening text via the LLM; never blocks ingestion if it fails.</p>
-          <p class="path">src/ingestion/metadata_extraction.py</p>
+          <p class="path">ingestion/metadata_extraction.py</p>
         </div>
         <div class="panel stage-card">
           <span class="stage-num">03</span>
           <h3>Chunk</h3>
           <p>Greedily groups paragraphs into 1000–1500 char chunks, paragraph boundaries preserved, no overlap.</p>
-          <p class="path">src/ingestion/chunker.py</p>
+          <p class="path">ingestion/chunker.py</p>
         </div>
         <div class="panel stage-card">
           <span class="stage-num">04</span>
           <h3>Embed &amp; index</h3>
           <p>Dense (bge-m3) + sparse (BM25) per chunk, upserted in crash-safe batches of 64 (deterministic point IDs).</p>
-          <p class="path">src/embeddings/model.py, embed.py</p>
+          <p class="path">common/embedding_model.py, embed.py</p>
         </div>
 
         <div class="stage-group-label">Query pipeline</div>
@@ -676,55 +676,55 @@
           <span class="stage-num">05</span>
           <h3>Route</h3>
           <p>Classifies complexity from Kannada question-word markers + cosine similarity to reference questions — no extra model call.</p>
-          <p class="path">src/routing/router.py</p>
+          <p class="path">retrieval/routing/router.py</p>
         </div>
         <div class="panel stage-card">
           <span class="stage-num">06</span>
           <h3>Retrieve</h3>
           <p>Hybrid dense+sparse search via Qdrant's native RRF fusion, optionally scoped to one book.</p>
-          <p class="path">src/retrieval/search.py</p>
+          <p class="path">retrieval/retrieve/search.py</p>
         </div>
         <div class="panel stage-card">
           <span class="stage-num">07</span>
           <h3>Rerank</h3>
           <p>Real cross-encoder (BAAI/bge-reranker-v2-m3) scores and re-sorts every candidate — no longer a stub.</p>
-          <p class="path">src/retrieval/reranker.py</p>
+          <p class="path">retrieval/retrieve/reranker.py</p>
         </div>
         <div class="panel stage-card">
           <span class="stage-num">08</span>
           <h3>Expand <span class="pill stub">complex only</span></h3>
           <p>Paraphrase/HyDE-style query variants, merged multi-query retrieval via RRF.</p>
-          <p class="path">src/retrieval/query_expansion.py</p>
+          <p class="path">retrieval/retrieve/query_expansion.py</p>
         </div>
         <div class="panel stage-card">
           <span class="stage-num">09</span>
           <h3>Prompt</h3>
           <p>Kannada system instructions (context-only; name the missing aspect explicitly rather than substitute) + labeled sources.</p>
-          <p class="path">src/generation/prompt.py</p>
+          <p class="path">retrieval/generation/prompt.py</p>
         </div>
         <div class="panel stage-card">
           <span class="stage-num">10</span>
           <h3>Generate</h3>
           <p>OpenRouter chat completion, <span class="mono-inline">max_tokens</span> capped, streaming or plain, with token-usage tracking.</p>
-          <p class="path">src/generation/llm.py</p>
+          <p class="path">common/llm.py</p>
         </div>
         <div class="panel stage-card">
           <span class="stage-num">11</span>
           <h3>Self-critique <span class="pill stub">complex only</span></h3>
           <p>Up to 3 iterations: generate → LLM checks groundedness → broaden retrieval → rewrite query → retry.</p>
-          <p class="path">src/pipeline/agent.py</p>
+          <p class="path">retrieval/pipeline/agent.py</p>
         </div>
         <div class="panel stage-card">
           <span class="stage-num">12</span>
           <h3>Cache</h3>
           <p>SQLite, keyed by normalized question + filters + route; skips the whole pipeline on a hit.</p>
-          <p class="path">src/cache/store.py</p>
+          <p class="path">retrieval/cache/store.py</p>
         </div>
         <div class="panel stage-card">
           <span class="stage-num">13</span>
           <h3>Log</h3>
           <p>JSONL, one line per query: route, chunk IDs, latency breakdown, cache hit, errors.</p>
-          <p class="path">src/observability/logger.py</p>
+          <p class="path">retrieval/observability/logger.py</p>
         </div>
       </div>
     </section>
@@ -773,7 +773,7 @@
     <section id="quality">
       <div class="label">07 · Retrieval quality</div>
       <h2>Naive baseline vs. current pipeline</h2>
-      <p>Measured against the 15-question hand-labeled Kannada eval set (<span class="path">src/retrieval/evaluate.py</span>, <span class="mono-inline">TK003</span>-scoped):</p>
+      <p>Measured against the 15-question hand-labeled Kannada eval set (<span class="path">retrieval/eval/evaluate.py</span>, <span class="mono-inline">TK003</span>-scoped):</p>
       <div class="panel scroll-x">
         <table>
           <thead>

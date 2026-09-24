@@ -1,7 +1,7 @@
 import streamlit as st
 
-from src.pipeline.query import ask
-from src.pipeline.catalog import list_books
+from retrieval.pipeline.query import ask
+from common.catalog import list_books
 
 
 st.set_page_config(page_title="Ask — Kannada RAG", page_icon="🔎")
