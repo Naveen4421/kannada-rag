@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL_NAME = "openai/gpt-4o-mini"
+MODEL_NAME = os.environ.get("OPENROUTER_MODEL", "openai/gpt-4o-mini")
 
 # Without an explicit cap, OpenRouter reserves budget assuming the model
 # could generate up to its full max output (often 16k+ tokens), which can
@@ -87,6 +87,12 @@ def generate_answer_stream(prompt, model_name=MODEL_NAME, max_tokens=MAX_TOKENS)
             break
 
         chunk = json.loads(payload)
+
+        # Some providers send frames with an empty `choices` list (e.g. a
+        # trailing usage-only frame) -- nothing to yield from those.
+        if not chunk.get("choices"):
+            continue
+
         delta = chunk["choices"][0].get("delta", {})
         content = delta.get("content")
 

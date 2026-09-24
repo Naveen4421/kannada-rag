@@ -1,43 +1,132 @@
+"""Query entry points.
+
+    ask()             UI dispatcher: process -> route -> cache -> (agent | fast streaming path)
+    answer_question() single-shot, non-streaming (evaluation, CLI)
+
+Both run the same evidence pipeline (rag_core.retrieve_evidence ->
+context_builder -> LLM -> grounding). Failures become structured results:
+`error` (user-facing string, as before) plus `error_detail`
+({"stage", "code", "message"}). A retrieval failure is never turned into an
+LLM answer without evidence.
+"""
 import argparse
 import time
 
-from src.embeddings.model import embed_texts
-from src.retrieval.search import search
-from src.retrieval.reranker import rerank
-from src.generation.prompt import build_prompt
-from src.generation.llm import generate_answer, generate_answer_stream
-from src.routing.router import classify
-from src.pipeline.agent import run_agentic_answer
+from src import config as cfg
 from src.cache import store
-from src.observability.logger import log_query
+from src.cache.fingerprint import fingerprint
+from src.generation.context_builder import build_evidence_prompt, strip_insufficient_marker, INSUFFICIENT_MARKER
+from src.generation.llm import generate_answer_stream
+from src.observability.trace import QueryTrace
+from src.pipeline.agent import NO_EVIDENCE_ANSWER, UNGROUNDED_CAVEAT, default_generate, run_agentic_answer
+from src.pipeline.errors import StageError
+from src.pipeline.rag_core import retrieve_evidence
+from src.query_processing.processor import process_query
+from src.routing.router import classify
+from src.validation.grounding import validate_grounding
+from src.evidence.engine import NO_EVIDENCE
 
 
-def answer_question(question, top_k=10, top_n=5, where=None, question_embedding=None):
-    retrieved = search(question, top_k=top_k, where=where, question_embedding=question_embedding)
-    reranked = rerank(question, retrieved, top_n=top_n)
-    prompt_text = build_prompt(question, reranked)
+def _error_result(question, route, stage_error, trace=None):
+    """`stage_error` is a StageError or a plain message (treated as an
+    unclassified failure)."""
+    if not isinstance(stage_error, StageError):
+        stage_error = StageError("unknown", "UNEXPECTED_ERROR", str(stage_error))
 
-    answer = None
-    error = None
+    detail = stage_error.to_dict()
+    label = {"retrieval": "Evidence retrieval failed", "routing": "Query routing failed",
+             "generation": "Answer generation failed"}.get(detail["stage"], f"{detail['stage']} failed")
+    message = f"{label} ({detail['code']}): {detail['message']}"
 
-    try:
-        answer = generate_answer(prompt_text)
-    except NotImplementedError as exc:
-        error = str(exc)
-    except Exception as exc:
-        error = f"LLM call failed: {exc}"
+    if detail["stage"] == "retrieval":
+        message += ". No answer was generated because no evidence could be retrieved."
+
+    if trace:
+        trace.error(detail)
+        trace.set(route=route, cache_hit=False)
+        trace.finish()
 
     return {
+        "success": False,
         "question": question,
-        "retrieved": retrieved,
-        "reranked": reranked,
-        "prompt": prompt_text,
-        "answer": answer,
-        "error": error,
+        "retrieved": [],
+        "reranked": [],
+        "evidence": [],
+        "prompt": "",
+        "route": route,
+        "answer": None,
+        "answer_stream": None,
+        "cache_hit": False,
+        "error": message,
+        "error_detail": detail,
     }
 
 
-def _finalize_stream(stream_gen, cache_key, question, route, base_payload, error_holder):
+def _no_evidence_result(question, stage, route):
+    return {
+        "success": True, "question": question, "retrieved": stage.retrieved, "reranked": stage.reranked,
+        "evidence": [], "prompt": "", "route": route, "answer": NO_EVIDENCE_ANSWER,
+        "grounding": {"grounded": True, "score": 1.0, "abstained": True, "method": "no_evidence",
+                      "supported_claims": [], "unsupported_claims": [], "citations_valid": True, "issues": []},
+        "answer_stream": None, "degraded": stage.degraded, "error": None,
+    }
+
+
+def answer_question(question, top_k=10, top_n=5, where=None, question_embedding=None):
+    """Single-shot evidence RAG (no routing, cache or retries)."""
+    trace = QueryTrace(question)
+    pq = process_query(question, where)
+    trace.set(normalized_query=pq.normalized_query, query_processing=pq.to_dict(), route="single_shot")
+
+    try:
+        stage = retrieve_evidence(pq.normalized_query, top_k, top_n, where=where,
+                                  question_embedding=question_embedding, trace=trace)
+        if stage.bundle.sufficiency["reason"] == NO_EVIDENCE:
+            result = _no_evidence_result(question, stage, "single_shot")
+        else:
+            prompt_text = build_evidence_prompt(question, stage.bundle)
+            raw = default_generate(prompt_text, trace)
+            grounding = validate_grounding(raw, stage.bundle, use_llm_judge=False)
+            clean, _ = strip_insufficient_marker(raw)
+            result = {
+                "success": True, "question": question, "retrieved": stage.retrieved, "reranked": stage.reranked,
+                "evidence": stage.bundle.items, "prompt": prompt_text, "answer": clean,
+                "grounding": grounding, "degraded": stage.degraded, "error": None,
+            }
+        trace.set(cache_hit=False)
+        trace.finish()
+        return result
+    except StageError as exc:
+        return _error_result(question, "single_shot", exc, trace)
+
+
+def _strip_marker_stream(pieces):
+    """Drops a leading INSUFFICIENT_MARKER from a token stream (the marker is
+    a machine signal, not text for the reader). Yields (piece, abstained_flag_box)."""
+    box = {"abstained": False}
+    buffer, decided = "", False
+
+    def gen():
+        nonlocal buffer, decided
+        for piece in pieces:
+            if decided:
+                yield piece
+                continue
+            buffer += piece
+            if len(buffer.lstrip()) >= len(INSUFFICIENT_MARKER) or not INSUFFICIENT_MARKER.startswith(buffer.lstrip()):
+                decided = True
+                text, box["abstained"] = strip_insufficient_marker(buffer)
+                buffer = ""
+                if text:
+                    yield text
+        if not decided and buffer:
+            text, box["abstained"] = strip_insufficient_marker(buffer)
+            yield text
+
+    return gen(), box
+
+
+def _finalize_stream(stream_gen, marker_box, cache_key, fp, question, route, base_payload, state, trace, stage):
     collected = []
 
     try:
@@ -45,143 +134,123 @@ def _finalize_stream(stream_gen, cache_key, question, route, base_payload, error
             collected.append(piece)
             yield piece
     except Exception as exc:
-        error_holder["error"] = f"LLM call failed: {exc}"
+        state["error"] = f"Answer generation failed (LLM_FAILED): {exc}"
+        trace.error({"stage": "generation", "code": "LLM_FAILED", "message": str(exc)})
 
-    error = error_holder["error"]
-    latency_ms = (time.perf_counter() - base_payload["_started"]) * 1000
-    answer = "".join(collected) if error is None else None
+    answer = "".join(collected) if state["error"] is None else None
+    grounding = None
 
-    payload = {**base_payload, "answer": answer, "error": error}
-    payload.pop("_started", None)
+    if answer is not None:
+        # Deterministic checks only: the text is already on screen, and the
+        # fast path has no retry, so no extra LLM judge call.
+        raw = (INSUFFICIENT_MARKER + " " + answer) if marker_box["abstained"] else answer
+        grounding = validate_grounding(raw, stage.bundle, min_score=cfg.AGENT.min_grounding_score, use_llm_judge=False)
+        state["grounding"] = grounding
+        state["answer"] = answer
 
-    if error is None:
-        store.put(cache_key, question, route, payload)
+        if not grounding["grounded"]:
+            state["warning"] = UNGROUNDED_CAVEAT.strip()
 
-    log_query({
-        "question": question,
-        "route": route,
-        "reranked": [{"chunk_id": c["chunk_id"]} for c in base_payload["reranked"]],
-        "latency_ms": {"total": latency_ms},
-        "cache_hit": False,
-        "error": error,
-    })
+    trace.section("validation", grounded=grounding and grounding["grounded"], score=grounding and grounding["score"],
+                  unsupported_claims=[c["text"][:120] for c in (grounding or {}).get("unsupported_claims", [])],
+                  citations_valid=grounding and grounding["citations_valid"], issues=(grounding or {}).get("issues"),
+                  method=grounding and grounding["method"])
+    trace.set(cache_hit=False)
 
+    if state["error"] is None and grounding["grounded"] and not stage.degraded:
+        store.put(cache_key, question, route, {**base_payload, "answer": answer, "grounding": grounding, "error": None},
+                  fingerprint=fp)
 
-def _error_result(question, route, message):
-    return {
-        "question": question,
-        "retrieved": [],
-        "reranked": [],
-        "prompt": "",
-        "route": route,
-        "answer": None,
-        "answer_stream": None,
-        "cache_hit": False,
-        "error": message,
-    }
+    trace.finish()
 
 
 def ask(question, where=None):
-    """
-    Dispatcher: route -> cache -> (agentic loop | fast streaming path).
-    Computes the question embedding once and reuses it for both routing and
-    the fast-path search (the agentic loop re-embeds per iteration since its
-    query text can change).
+    """Dispatcher: process -> route -> cache -> (agentic loop | fast streaming path).
 
-    Every stage (embedding, routing, retrieval, reranking -- not just the
-    final LLM call) is guarded: a failure anywhere (e.g. GPU OOM on a shared
-    machine) degrades to a clean error result instead of an unhandled
-    exception reaching the UI.
+    The question is embedded once (normalised text) and reused for routing and
+    the first retrieval. Every stage is guarded so a failure (e.g. GPU OOM)
+    yields a structured error result rather than an exception in the UI.
     """
-    started = time.perf_counter()
+    trace = QueryTrace(question)
+    pq = process_query(question, where)
+    trace.set(normalized_query=pq.normalized_query, query_processing=pq.to_dict())
 
     try:
-        question_embedding = embed_texts([question])[0]
-        route_decision = classify(question, question_embedding)
+        from src.embeddings.model import embed_texts
+
+        question_embedding = embed_texts([pq.normalized_query])[0]
+        route = classify(pq.normalized_query, question_embedding)
     except Exception as exc:
-        return _error_result(question, "unknown", f"Routing failed: {exc}")
+        return _error_result(question, "unknown", StageError("routing", "ROUTING_FAILED", str(exc)), trace)
 
-    book_id = where.get("book_id") if where else None
-    cache_key = store.make_key(question, book_id, route_decision.top_k, route_decision.top_n, route_decision.route)
+    trace.set(route=route.route, routing=route.diagnostics())
 
-    cached = store.get(cache_key)
+    cache_key = store.make_key(question, pq.book_filter, route.top_k, route.top_n, route.route)
+    fp = fingerprint(route.route)
+
+    cached = store.get(cache_key, fp)
     if cached is not None:
-        log_query({
-            "question": question,
-            "route": route_decision.route,
-            "reranked": [{"chunk_id": c["chunk_id"]} for c in cached.get("reranked", [])],
-            "latency_ms": {"total": (time.perf_counter() - started) * 1000},
-            "cache_hit": True,
-            "error": cached.get("error"),
-        })
+        trace.set(cache_hit=True)
+        trace.section("evidence", **{k: v for k, v in cached.get("evidence_summary", {}).items()})
+        trace.finish()
         return {**cached, "cache_hit": True, "answer_stream": None}
 
-    if route_decision.use_self_critique:
+    if route.use_self_critique:
         try:
-            result = run_agentic_answer(question, top_k=route_decision.top_k, top_n=route_decision.top_n, where=where)
-            error = result["error"]
+            result = run_agentic_answer(question, top_k=route.top_k, top_n=route.top_n, where=where,
+                                        normalized_query=pq.normalized_query, trace=trace,
+                                        question_embedding=question_embedding)
+        except StageError as exc:
+            return _error_result(question, route.route, exc, trace)
         except Exception as exc:
-            result = {"question": question, "answer": None, "reranked": [], "prompt": "", "iterations": [], "iteration_count": 0}
-            error = f"LLM call failed: {exc}"
+            return _error_result(question, route.route, StageError("agent", "UNEXPECTED_ERROR", str(exc)), trace)
 
-        payload = {**result, "error": error, "route": route_decision.route}
+        payload = {**result, "success": True, "route": route.route, "routing": route.diagnostics()}
 
-        if error is None:
-            store.put(cache_key, question, route_decision.route, payload)
+        if result["grounding"]["grounded"] and not result["degraded"]:
+            store.put(cache_key, question, route.route, payload, fingerprint=fp)
 
-        log_query({
-            "question": question,
-            "route": route_decision.route,
-            "iteration_count": payload.get("iteration_count"),
-            "reranked": [{"chunk_id": c["chunk_id"]} for c in payload.get("reranked", [])],
-            "latency_ms": {"total": (time.perf_counter() - started) * 1000},
-            "cache_hit": False,
-            "error": error,
-        })
+        trace.set(cache_hit=False)
+        trace.finish()
 
         return {**payload, "cache_hit": False, "answer_stream": None}
 
-    # Fast path: no critique, so the final generation call can stream live.
+    # Fast path: the final generation call streams live.
     try:
-        retrieved = search(question, top_k=route_decision.top_k, where=where, question_embedding=question_embedding)
-        reranked = rerank(question, retrieved, top_n=route_decision.top_n)
-        prompt_text = build_prompt(question, reranked)
+        stage = retrieve_evidence(pq.normalized_query, route.top_k, route.top_n, where=where,
+                                  question_embedding=question_embedding, trace=trace)
+    except StageError as exc:
+        return _error_result(question, route.route, exc, trace)
     except Exception as exc:
-        error = f"Retrieval failed: {exc}"
-        log_query({
-            "question": question,
-            "route": route_decision.route,
-            "latency_ms": {"total": (time.perf_counter() - started) * 1000},
-            "cache_hit": False,
-            "error": error,
-        })
-        return _error_result(question, route_decision.route, error)
+        return _error_result(question, route.route, StageError("retrieval", "UNEXPECTED_ERROR", str(exc)), trace)
 
+    if stage.bundle.sufficiency["reason"] == NO_EVIDENCE:
+        result = {**_no_evidence_result(question, stage, route.route), "cache_hit": False}
+        trace.set(cache_hit=False)
+        trace.finish()
+        return result
+
+    prompt_text = build_evidence_prompt(question, stage.bundle)
     base_payload = {
-        "question": question,
-        "retrieved": retrieved,
-        "reranked": reranked,
-        "prompt": prompt_text,
-        "route": route_decision.route,
-        "_started": started,
+        "success": True, "question": question, "retrieved": stage.retrieved, "reranked": stage.reranked,
+        "evidence": stage.bundle.items, "evidence_summary": stage.bundle.summary(),
+        "prompt": prompt_text, "route": route.route, "routing": route.diagnostics(), "degraded": stage.degraded,
     }
 
-    # The stream is lazy -- any LLM error (e.g. no credits) only surfaces once
-    # app.py actually consumes it. error_holder is a mutable box both this
-    # dict and the generator share, so the caller can check it *after*
-    # consuming answer_stream (e.g. via st.write_stream) to display the error.
-    error_holder = {"error": None}
-    stream = _finalize_stream(generate_answer_stream(prompt_text), cache_key, question, route_decision.route, base_payload, error_holder)
+    # The stream is lazy: an LLM error only surfaces once the UI consumes it.
+    # `state` is a mutable box shared with the generator; the caller reads
+    # state["error"] / state["grounding"] AFTER consuming answer_stream.
+    # (Exposed as "stream_error" for compatibility with the existing UI.)
+    state = {"error": None, "grounding": None, "answer": None, "warning": None}
+    stream, marker_box = _strip_marker_stream(generate_answer_stream(prompt_text))
+    final = _finalize_stream(stream, marker_box, cache_key, fp, question, route.route, base_payload, state, trace, stage)
 
     return {
-        "question": question,
-        "retrieved": retrieved,
-        "reranked": reranked,
-        "prompt": prompt_text,
-        "route": route_decision.route,
+        **base_payload,
         "answer": None,
-        "answer_stream": stream,
-        "stream_error": error_holder,
+        "answer_stream": final,
+        "stream_error": state,
+        "stream_state": state,
         "cache_hit": False,
         "error": None,
     }
@@ -200,14 +269,16 @@ def main():
     print(f"Retrieved (top {args.top_k}):")
     print("=" * 70)
     for rank, chunk in enumerate(result["retrieved"], start=1):
-        print(f"{rank}. {chunk['chunk_id']}  score={chunk['score']:.4f}")
+        print(f"{rank}. {chunk['chunk_id']}  rrf={chunk['rrf_score']:.4f}  "
+              f"dense#{chunk['dense_rank']} sparse#{chunk['sparse_rank']}")
 
     print()
     print("=" * 70)
-    print(f"Reranked (top {args.top_n}):")
+    print(f"Evidence (top {args.top_n}):")
     print("=" * 70)
-    for rank, chunk in enumerate(result["reranked"], start=1):
-        print(f"{rank}. {chunk['chunk_id']}  score={chunk['score']:.4f}")
+    for item in result.get("evidence", []):
+        print(f"{item['evidence_id']}. {item['chunk_id']}  {item['book_name']} p.{item['page']}  "
+              f"evidence={item['evidence_score']:.3f} {item['components']}")
 
     print()
     print("=" * 70)
@@ -223,6 +294,9 @@ def main():
         print(f"[{result['error']}]")
     else:
         print(result["answer"])
+        grounding = result.get("grounding")
+        if grounding:
+            print(f"\n[grounded={grounding['grounded']} score={grounding['score']} issues={grounding['issues']}]")
 
 
 if __name__ == "__main__":

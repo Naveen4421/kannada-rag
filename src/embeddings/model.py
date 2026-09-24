@@ -1,14 +1,16 @@
 from functools import lru_cache
 
-import torch
-from sentence_transformers import SentenceTransformer
-
 
 MODEL_NAME = "BAAI/bge-m3"
 
 
 @lru_cache(maxsize=1)
 def get_model(model_name=MODEL_NAME):
+    # Heavy imports are deferred so query-side modules can be imported (and
+    # tested) without the ML stack installed.
+    import torch
+    from sentence_transformers import SentenceTransformer
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
     return SentenceTransformer(model_name, device=device)
 

@@ -36,6 +36,20 @@ class RouteDecision:
     top_n: int
     use_query_expansion: bool
     use_self_critique: bool
+    # Diagnostics: everything needed to see why a route was chosen. `score`
+    # is kept as the combined score for existing callers.
+    heuristic_score: float = 0.0
+    semantic_score: float = 0.0
+    combined_score: float = 0.0
+    confidence: float = 0.0
+    reason: str = ""
+
+    def diagnostics(self):
+        return {
+            "route": self.route, "heuristic_score": self.heuristic_score,
+            "semantic_score": self.semantic_score, "combined_score": self.combined_score,
+            "confidence": self.confidence, "reason": self.reason,
+        }
 
 
 @lru_cache(maxsize=1)
@@ -71,6 +85,26 @@ def _embedding_score(question_embedding):
     return complex_sim - simple_sim
 
 
+# |combined score| at which confidence saturates at 1.0. A documented scale,
+# not a calibrated probability.
+CONFIDENCE_SCALE = 0.10
+
+
+def _marker_hits(question):
+    simple = [m for m in SIMPLE_MARKERS if m in question]
+    complex_ = [m for m in COMPLEX_MARKERS if m in question]
+    return simple, complex_
+
+
+def _reason(question, heuristic, embedding, route):
+    simple, complex_ = _marker_hits(question)
+    if simple or complex_:
+        markers = f"markers simple={simple} complex={complex_}"
+    else:
+        markers = "no question-word marker (heuristic ignored)"
+    return f"{markers}; semantic {'complex' if embedding > 0 else 'simple'}-leaning ({embedding:+.3f}) -> {route}"
+
+
 def classify(question, question_embedding):
     heuristic = _heuristic_score(question)
     embedding = _embedding_score(question_embedding)
@@ -85,6 +119,12 @@ def classify(question, question_embedding):
         combined = 0.4 * heuristic + 0.6 * embedding
 
     route = "complex" if combined > 0 else "simple"
+    diag = dict(
+        heuristic_score=round(heuristic, 4), semantic_score=round(embedding, 4),
+        combined_score=round(combined, 4),
+        confidence=round(min(1.0, abs(combined) / CONFIDENCE_SCALE), 4),
+        reason=_reason(question, heuristic, embedding, route),
+    )
 
     if route == "complex":
         return RouteDecision(
@@ -94,6 +134,7 @@ def classify(question, question_embedding):
             top_n=6,
             use_query_expansion=True,
             use_self_critique=True,
+            **diag,
         )
 
     return RouteDecision(
@@ -103,4 +144,5 @@ def classify(question, question_embedding):
         top_n=3,
         use_query_expansion=False,
         use_self_critique=False,
+        **diag,
     )
