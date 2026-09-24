@@ -2,8 +2,8 @@ from pathlib import Path
 
 import streamlit as st
 
-from src.pipeline.ingest import ingest_file
-from src.pipeline.catalog import list_books
+from ingestion.ingest import ingest_file
+from common.catalog import list_books
 
 
 st.set_page_config(page_title="Ingest — Kannada RAG", page_icon="📥")

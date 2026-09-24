@@ -1,8 +1,8 @@
 import pytest
 
-from src.config import EvidenceConfig
-from src.evidence import agreement, citations, scorer
-from src.evidence.engine import NO_EVIDENCE, WEAK_EVIDENCE, LOW_RERANK_CONFIDENCE, build_evidence, assess_sufficiency
+from retrieval.config import EvidenceConfig
+from retrieval.evidence import agreement, citations, scorer
+from retrieval.evidence.engine import NO_EVIDENCE, WEAK_EVIDENCE, LOW_RERANK_CONFIDENCE, build_evidence, assess_sufficiency
 from tests.conftest import make_chunk
 
 BORN = "ರಾಜಪುರೋಹಿತರು 1880 ರಲ್ಲಿ ಧಾರವಾಡದಲ್ಲಿ ಜನಿಸಿದರು ಎಂದು ತಿಳಿದುಬರುತ್ತದೆ"

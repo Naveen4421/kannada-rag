@@ -14,7 +14,8 @@ RUN pip install --upgrade pip \
     && pip install -r requirements.docker.txt
 
 COPY app.py .
-COPY src ./src
+COPY common ./common
+COPY retrieval ./retrieval
 COPY ingestion ./ingestion
 COPY data ./data
 

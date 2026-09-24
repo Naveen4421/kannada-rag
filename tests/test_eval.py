@@ -1,9 +1,9 @@
 import pytest
 
-from src.eval import metrics
-from src.eval.gold import load_gold, verify
-from src.eval.run_eval import evaluate_rag, evaluate_retrieval
-from src.retrieval.types import RetrievalOutput
+from retrieval.eval import metrics
+from retrieval.eval.gold import load_gold, verify
+from retrieval.eval.run_eval import evaluate_rag, evaluate_retrieval
+from retrieval.retrieve.types import RetrievalOutput
 
 
 def test_rank_metrics_known_values():

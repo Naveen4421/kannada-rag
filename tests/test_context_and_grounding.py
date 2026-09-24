@@ -1,9 +1,9 @@
 import json
 
-from src.evidence.engine import build_evidence
-from src.generation.context_builder import (INSUFFICIENT_MARKER, build_context, build_evidence_prompt,
+from retrieval.evidence.engine import build_evidence
+from retrieval.generation.context_builder import (INSUFFICIENT_MARKER, build_context, build_evidence_prompt,
                                              strip_insufficient_marker)
-from src.validation.grounding import extract_claims, feedback_lines, validate_grounding
+from retrieval.validation.grounding import extract_claims, feedback_lines, validate_grounding
 from tests.conftest import make_chunk
 from tests.test_evidence import BORN, BORN_B, BORN_WRONG, chunk
 

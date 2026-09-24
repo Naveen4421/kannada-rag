@@ -1,13 +1,13 @@
 import pytest
 
-from src.config import AgentConfig
-from src.evidence.engine import build_evidence
-from src.generation.context_builder import INSUFFICIENT_MARKER
-from src.observability.trace import QueryTrace
-from src.pipeline.agent import NO_EVIDENCE_ANSWER, UNGROUNDED_CAVEAT, run_agentic_answer
-from src.pipeline.errors import StageError
-from src.pipeline.rag_core import RetrievalStage, retrieve_evidence
-from src.retrieval.search import hybrid_search
+from retrieval.config import AgentConfig
+from retrieval.evidence.engine import build_evidence
+from retrieval.generation.context_builder import INSUFFICIENT_MARKER
+from retrieval.observability.trace import QueryTrace
+from retrieval.pipeline.agent import NO_EVIDENCE_ANSWER, UNGROUNDED_CAVEAT, run_agentic_answer
+from retrieval.pipeline.errors import StageError
+from retrieval.pipeline.rag_core import RetrievalStage, retrieve_evidence
+from retrieval.retrieve.search import hybrid_search
 from tests.conftest import TEXT_A1, TEXT_A2, TEXT_B1, sparse
 from tests.test_evidence import chunk
 

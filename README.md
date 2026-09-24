@@ -268,30 +268,27 @@ kannada-rag/
 │   └── index/
 │       └── vector index / database
 │
-├── src/
-│   │
-│   ├── ingestion/
-│   │   ├── docx_loader.py
-│   │   ├── text_loader.py
-│   │   ├── cleaner.py
-│   │   └── chunker.py
-│   │
-│   ├── embeddings/
-│   │   ├── model.py
-│   │   └── embed.py
-│   │
-│   ├── retrieval/
-│   │   ├── search.py
-│   │   ├── reranker.py
-│   │   └── hybrid.py
-│   │
-│   ├── generation/
-│   │   ├── prompt.py
-│   │   └── llm.py
-│   │
-│   └── pipeline/
-│       ├── ingest.py
-│       └── query.py
+├── ingestion/            PIPELINE 1: dataset preparation and indexing
+│   ├── docx_loader.py, text_loader.py, pdf_parser.py
+│   ├── metadata_extraction.py
+│   ├── chunker.py
+│   ├── ingest.py         (load -> metadata -> chunk -> JSONL -> embed)
+│   └── embed.py          (dense + sparse embeddings -> Qdrant)
+│
+├── retrieval/            PIPELINE 2: query time (evidence-grounded RAG)
+│   ├── config.py
+│   ├── query_processing/, routing/, cache/
+│   ├── retrieve/         (search.py hybrid+RRF, reranker.py, query_expansion.py)
+│   ├── evidence/, generation/, validation/
+│   ├── pipeline/         (query.py, agent.py, rag_core.py, errors.py)
+│   ├── observability/
+│   └── eval/             (metrics, gold set, run_eval, RAGAS scripts)
+│
+├── common/               used by both pipelines
+│   ├── embedding_model.py  (bge-m3 dense, BM25 sparse)
+│   ├── llm.py              (OpenRouter client)
+│   ├── index.py            (Qdrant client, collection name)
+│   └── catalog.py          (list ingested books)
 │
 ├── tests/
 │   ├── test_chunking.py

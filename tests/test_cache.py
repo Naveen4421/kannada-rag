@@ -1,7 +1,7 @@
 import sqlite3
 
-from src.cache import fingerprint as fp
-from src.cache import store
+from retrieval.cache import fingerprint as fp
+from retrieval.cache import store
 
 
 def test_key_normalises_whitespace_but_separates_filters_and_routes():
@@ -43,12 +43,12 @@ def test_fingerprint_changes_with_model_prompt_index_and_route(monkeypatch):
     assert base == fp.fingerprint("simple", index_size_value=100)
     assert base != fp.fingerprint("simple", index_size_value=101)  # book ingested
     assert base != fp.fingerprint("complex", index_size_value=100)  # agent settings only affect complex
-    monkeypatch.setattr("src.config.PROMPT_VERSION", "evidence-v2")
+    monkeypatch.setattr("retrieval.config.PROMPT_VERSION", "evidence-v2")
     assert base != fp.fingerprint("simple", index_size_value=100)
 
 
 def test_agent_setting_does_not_invalidate_simple_route(monkeypatch):
-    from src import config
+    from retrieval import config
     from dataclasses import replace
 
     base = fp.fingerprint("simple", index_size_value=1)

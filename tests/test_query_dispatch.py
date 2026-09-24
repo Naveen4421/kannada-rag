@@ -4,14 +4,14 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from src.cache import store
-from src.evidence.engine import build_evidence
-from src.generation.context_builder import INSUFFICIENT_MARKER
-from src.observability import logger
-from src.pipeline import query as q
-from src.pipeline.errors import StageError
-from src.pipeline.rag_core import RetrievalStage
-from src.routing.router import RouteDecision
+from retrieval.cache import store
+from retrieval.evidence.engine import build_evidence
+from retrieval.generation.context_builder import INSUFFICIENT_MARKER
+from retrieval.observability import logger
+from retrieval.pipeline import query as q
+from retrieval.pipeline.errors import StageError
+from retrieval.pipeline.rag_core import RetrievalStage
+from retrieval.routing.router import RouteDecision
 from tests.conftest import TEXT_A1
 from tests.test_evidence import chunk
 
@@ -23,7 +23,7 @@ GOOD = "ರಾಜಪುರೋಹಿತರು 1880 ರಲ್ಲಿ ಧಾರವ�
 def env(monkeypatch, tmp_path):
     monkeypatch.setattr(store, "DB_PATH", tmp_path / "cache.sqlite3")
     monkeypatch.setattr(logger, "LOG_PATH", tmp_path / "queries.jsonl")
-    monkeypatch.setattr("src.embeddings.model.embed_texts", lambda texts, **k: np.array([[1.0, 0.0]]))
+    monkeypatch.setattr("common.embedding_model.embed_texts", lambda texts, **k: np.array([[1.0, 0.0]]))
     monkeypatch.setattr(q, "fingerprint", lambda route: "fp1")
 
     def set_route(route):
