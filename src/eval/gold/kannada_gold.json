@@ -1,0 +1,432 @@
+{
+ "version": 1,
+ "note": "'verification' states what was actually checked. Nothing here is human-verified except where the project owner labelled the fact-Q* cases. Run `python -m src.eval.gold` to re-check the mechanical claims.",
+ "cases": [
+  {
+   "id": "fact-Q1",
+   "category": "factual",
+   "question": "ರಾಜಪುರೋಹಿತರ ತಂದೆಯವರ ಮರಣದ ನಂತರ ಜನರಲ್ಲಿ ಅವರ ಬಗ್ಗೆ ಯಾವ ಭಾವನೆ ಇತ್ತು?",
+   "book_id": "TK003",
+   "relevant_chunks": [
+    "TK003_0005"
+   ],
+   "expected_behavior": "answer",
+   "verification": "pre-existing hand labels (evaluate.py); chunk ids checked to exist only"
+  },
+  {
+   "id": "fact-Q2",
+   "category": "factual",
+   "question": "ರಾಜಪುರೋಹಿತರು ಎಲ್ಲಿ ಮತ್ತು ಯಾವ ದಿನಾಂಕದಲ್ಲಿ ಜನಿಸಿದರು?",
+   "book_id": "TK003",
+   "relevant_chunks": [
+    "TK003_0007"
+   ],
+   "expected_behavior": "answer",
+   "verification": "pre-existing hand labels (evaluate.py); chunk ids checked to exist only"
+  },
+  {
+   "id": "fact-Q3",
+   "category": "factual",
+   "question": "ರಾಜಪುರೋಹಿತರು ಶಿಕ್ಷಕರಾಗಿ ಹೇಗೆ ತಮ್ಮ ವೃತ್ತಿಯನ್ನು ಆರಂಭಿಸಿದರು?",
+   "book_id": "TK003",
+   "relevant_chunks": [
+    "TK003_0007",
+    "TK003_0008"
+   ],
+   "expected_behavior": "answer",
+   "verification": "pre-existing hand labels (evaluate.py); chunk ids checked to exist only"
+  },
+  {
+   "id": "fact-Q4",
+   "category": "factual",
+   "question": "ರಾಜಪುರೋಹಿತರು ಕರ್ನಾಟಕ ಮತ್ತು ಮಹಾರಾಷ್ಟ್ರದ ಇತಿಹಾಸದ ಬಗ್ಗೆ ಯಾವ ರೀತಿಯ ಲೇಖನಗಳನ್ನು ಬರೆದರು?",
+   "book_id": "TK003",
+   "relevant_chunks": [
+    "TK003_0009"
+   ],
+   "expected_behavior": "answer",
+   "verification": "pre-existing hand labels (evaluate.py); chunk ids checked to exist only"
+  },
+  {
+   "id": "fact-Q5",
+   "category": "factual",
+   "question": "ರಾಜಪುರೋಹಿತರ ಸ್ವಭಾವ ಹೇಗಿತ್ತು?",
+   "book_id": "TK003",
+   "relevant_chunks": [
+    "TK003_0045",
+    "TK003_0046"
+   ],
+   "expected_behavior": "answer",
+   "verification": "pre-existing hand labels (evaluate.py); chunk ids checked to exist only"
+  },
+  {
+   "id": "fact-Q6",
+   "category": "factual",
+   "question": "ರಾಜಪುರೋಹಿತರು ಇತಿಹಾಸ ಸಂಶೋಧನೆಗಾಗಿ ಮಾಡಿದ ಪ್ರಮುಖ ಕೆಲಸವೇನು?",
+   "book_id": "TK003",
+   "relevant_chunks": [
+    "TK003_0084"
+   ],
+   "expected_behavior": "answer",
+   "verification": "pre-existing hand labels (evaluate.py); chunk ids checked to exist only"
+  },
+  {
+   "id": "fact-Q7",
+   "category": "factual",
+   "question": "ರಾಜಪುರೋಹಿತರಿಗೆ ಕನ್ನಡದ ಮೇಲೆ ಪ್ರೀತಿ ಮೂಡಲು ಕಾರಣರಾದವರು ಯಾರು?",
+   "book_id": "TK003",
+   "relevant_chunks": [
+    "TK003_0007"
+   ],
+   "expected_behavior": "answer",
+   "verification": "pre-existing hand labels (evaluate.py); chunk ids checked to exist only"
+  },
+  {
+   "id": "fact-Q8",
+   "category": "factual",
+   "question": "ರಾಜಪುರೋಹಿತರು 1908ರಲ್ಲಿ ಸರ್ಕಾರಿ ನೌಕರಿಗೆ ರಾಜೀನಾಮೆ ನೀಡಿದ ನಂತರ ಏನು ಮಾಡಿದರು?",
+   "book_id": "TK003",
+   "relevant_chunks": [
+    "TK003_0008"
+   ],
+   "expected_behavior": "answer",
+   "verification": "pre-existing hand labels (evaluate.py); chunk ids checked to exist only"
+  },
+  {
+   "id": "fact-Q9",
+   "category": "factual",
+   "question": "ರಾಜಪುರೋಹಿತರ ಮೊದಲ ಪುಸ್ತಕ ಯಾವುದು ಮತ್ತು ಅದು ಯಾವ ವರ್ಷ ಪ್ರಕಟವಾಯಿತು?",
+   "book_id": "TK003",
+   "relevant_chunks": [
+    "TK003_0008"
+   ],
+   "expected_behavior": "answer",
+   "verification": "pre-existing hand labels (evaluate.py); chunk ids checked to exist only"
+  },
+  {
+   "id": "fact-Q10",
+   "category": "factual",
+   "question": "ರಾಜಪುರೋಹಿತರು ಇತಿಹಾಸ ಸಂಶೋಧನೆ ಮಾಡುವಾಗ ಯಾವ ವಿಧಾನಗಳನ್ನು ಅನುಸರಿಸುತ್ತಿದ್ದರು?",
+   "book_id": "TK003",
+   "relevant_chunks": [
+    "TK003_0070",
+    "TK003_0084"
+   ],
+   "expected_behavior": "answer",
+   "verification": "pre-existing hand labels (evaluate.py); chunk ids checked to exist only"
+  },
+  {
+   "id": "fact-Q11",
+   "category": "factual",
+   "question": "ರಾಜಪುರೋಹಿತರು ಕರ್ನಾಟಕದ ಇತಿಹಾಸ ಸಂಶೋಧನಾ ಮಂಡಳಿಯನ್ನು ಯಾರ ಸಹಕಾರದಿಂದ ಸ್ಥಾಪಿಸಿದರು?",
+   "book_id": "TK003",
+   "relevant_chunks": [
+    "TK003_0084"
+   ],
+   "expected_behavior": "answer",
+   "verification": "pre-existing hand labels (evaluate.py); chunk ids checked to exist only"
+  },
+  {
+   "id": "fact-Q12",
+   "category": "factual",
+   "question": "ರಾಜಪುರೋಹಿತರು ಯಾವ ರೀತಿಯ ಗ್ರಂಥಗಳನ್ನು ರಚಿಸಿದ್ದಾರೆ?",
+   "book_id": "TK003",
+   "relevant_chunks": [
+    "TK003_0084"
+   ],
+   "expected_behavior": "answer",
+   "verification": "pre-existing hand labels (evaluate.py); chunk ids checked to exist only"
+  },
+  {
+   "id": "fact-Q13",
+   "category": "factual",
+   "question": "ರಾಜಪುರೋಹಿತರು ಯಾವ ಶಾಲೆಗಳಲ್ಲಿ ಶಿಕ್ಷಕರಾಗಿ ಕೆಲಸ ಮಾಡಿದರು?",
+   "book_id": "TK003",
+   "relevant_chunks": [
+    "TK003_0008",
+    "TK003_0064"
+   ],
+   "expected_behavior": "answer",
+   "verification": "pre-existing hand labels (evaluate.py); chunk ids checked to exist only"
+  },
+  {
+   "id": "fact-Q14",
+   "category": "factual",
+   "question": "ರಾಜಪುರೋಹಿತರು ಶಿಲಾಲೇಖಗಳ ಸಂಶೋಧನೆಗೆ ಹೇಗೆ ಕೊಡುಗೆ ನೀಡಿದರು?",
+   "book_id": "TK003",
+   "relevant_chunks": [
+    "TK003_0070",
+    "TK003_0084"
+   ],
+   "expected_behavior": "answer",
+   "verification": "pre-existing hand labels (evaluate.py); chunk ids checked to exist only"
+  },
+  {
+   "id": "fact-Q15",
+   "category": "factual",
+   "question": "ರಾಜಪುರೋಹಿತರ ಸಂಶೋಧನಾ ಕಾರ್ಯದ ವಿಶೇಷತೆ ಏನು?",
+   "book_id": "TK003",
+   "relevant_chunks": [
+    "TK003_0070",
+    "TK003_0084"
+   ],
+   "expected_behavior": "answer",
+   "verification": "pre-existing hand labels (evaluate.py); chunk ids checked to exist only"
+  },
+  {
+   "id": "rare-1",
+   "category": "rare_word",
+   "question": "'ಇಷ್ಟಮಿತ್ರರು' ಎಂಬ ಪದ ಇರುವ ಭಾಗ ಯಾವುದು?",
+   "relevant_chunks": [
+    "TK005_0134"
+   ],
+   "must_contain": [
+    "ಇಷ್ಟಮಿತ್ರರು"
+   ],
+   "expected_behavior": "answer",
+   "verification": "mechanical: word occurs in exactly this chunk"
+  },
+  {
+   "id": "rare-2",
+   "category": "rare_word",
+   "question": "'ಕ್ಷೀಣವಾಗುವದು' ಎಂಬ ಪದ ಇರುವ ಭಾಗ ಯಾವುದು?",
+   "relevant_chunks": [
+    "TK005_0079"
+   ],
+   "must_contain": [
+    "ಕ್ಷೀಣವಾಗುವದು"
+   ],
+   "expected_behavior": "answer",
+   "verification": "mechanical: word occurs in exactly this chunk"
+  },
+  {
+   "id": "rare-3",
+   "category": "rare_word",
+   "question": "'ಉತ್ಸವಕಾಲದಲ್ಲಿ' ಎಂಬ ಪದ ಇರುವ ಭಾಗ ಯಾವುದು?",
+   "relevant_chunks": [
+    "TK001_0445"
+   ],
+   "must_contain": [
+    "ಉತ್ಸವಕಾಲದಲ್ಲಿ"
+   ],
+   "expected_behavior": "answer",
+   "verification": "mechanical: word occurs in exactly this chunk"
+  },
+  {
+   "id": "rare-4",
+   "category": "rare_word",
+   "question": "'ಅರ್ಚಕರೆ' ಎಂಬ ಪದ ಇರುವ ಭಾಗ ಯಾವುದು?",
+   "relevant_chunks": [
+    "TK002_0422"
+   ],
+   "must_contain": [
+    "ಅರ್ಚಕರೆ"
+   ],
+   "expected_behavior": "answer",
+   "verification": "mechanical: word occurs in exactly this chunk"
+  },
+  {
+   "id": "rare-5",
+   "category": "rare_word",
+   "question": "'ತಡೆದುಕೊಳ್ಳಿ' ಎಂಬ ಪದ ಇರುವ ಭಾಗ ಯಾವುದು?",
+   "relevant_chunks": [
+    "TK002_0346"
+   ],
+   "must_contain": [
+    "ತಡೆದುಕೊಳ್ಳಿ"
+   ],
+   "expected_behavior": "answer",
+   "verification": "mechanical: word occurs in exactly this chunk"
+  },
+  {
+   "id": "rare-6",
+   "category": "rare_word",
+   "question": "'ವಸ್ತುವೆಂದರೆ' ಎಂಬ ಪದ ಇರುವ ಭಾಗ ಯಾವುದು?",
+   "relevant_chunks": [
+    "TK001_0152"
+   ],
+   "must_contain": [
+    "ವಸ್ತುವೆಂದರೆ"
+   ],
+   "expected_behavior": "answer",
+   "verification": "mechanical: word occurs in exactly this chunk"
+  },
+  {
+   "id": "rare-7",
+   "category": "rare_word",
+   "question": "'ಪೊಱಮಡುವುದಲಗು' ಎಂಬ ಪದ ಇರುವ ಭಾಗ ಯಾವುದು?",
+   "relevant_chunks": [
+    "TK004_0043"
+   ],
+   "must_contain": [
+    "ಪೊಱಮಡುವುದಲಗು"
+   ],
+   "expected_behavior": "answer",
+   "verification": "mechanical: word occurs in exactly this chunk"
+  },
+  {
+   "id": "exact-1",
+   "category": "exact_word",
+   "question": "ನೊಬೆಲ್",
+   "relevant_chunks": [
+    "FTS_0107",
+    "FTS_0108",
+    "FTS_0110",
+    "FTS_0112",
+    "FTS_0130",
+    "TK001_0450"
+   ],
+   "must_contain": [
+    "ನೊಬೆಲ್"
+   ],
+   "expected_behavior": "answer",
+   "verification": "mechanical: every chunk containing the word (whole corpus)"
+  },
+  {
+   "id": "exact-2",
+   "category": "exact_word",
+   "question": "ಕಂಪ್ಯೂಟರ್",
+   "relevant_chunks": [
+    "FTS_0121"
+   ],
+   "must_contain": [
+    "ಕಂಪ್ಯೂಟರ್"
+   ],
+   "expected_behavior": "answer",
+   "verification": "mechanical: every chunk containing the word (whole corpus)"
+  },
+  {
+   "id": "cross-1",
+   "category": "cross_book",
+   "question": "ನೊಬೆಲ್ ಬಹುಮಾನದ ಉಲ್ಲೇಖ ಯಾವ ಪುಸ್ತಕಗಳಲ್ಲಿ ಬರುತ್ತದೆ?",
+   "relevant_chunks": [
+    "FTS_0107",
+    "FTS_0108",
+    "FTS_0110",
+    "FTS_0112",
+    "FTS_0130",
+    "TK001_0450"
+   ],
+   "must_contain": [
+    "ನೊಬೆಲ್"
+   ],
+   "expected_behavior": "answer",
+   "expected_books": [
+    "FTS",
+    "TK001"
+   ],
+   "verification": "mechanical: chunks containing the term; needs human review that each chunk is on-topic"
+  },
+  {
+   "id": "variant-1",
+   "category": "spelling_ocr_variant",
+   "question": "ಸ್ಥಳಗಳಿಂದ",
+   "relevant_chunks": [
+    "TK001_0013"
+   ],
+   "must_contain": [
+    "ಸ್ಥಳಗಳಿ೦ದ"
+   ],
+   "expected_behavior": "answer",
+   "notes": "OCR wrote Kannada digit zero for anusvara",
+   "verification": "mechanical: indexed spelling occurs in the chunk; query spelling differs"
+  },
+  {
+   "id": "variant-2",
+   "category": "spelling_ocr_variant",
+   "question": "ಪೊರಮಡುವುದಲಗು",
+   "relevant_chunks": [
+    "TK004_0043"
+   ],
+   "must_contain": [
+    "ಪೊಱಮಡುವುದಲಗು"
+   ],
+   "expected_behavior": "answer",
+   "notes": "archaic ಱ vs ರ",
+   "verification": "mechanical: indexed spelling occurs in the chunk; query spelling differs"
+  },
+  {
+   "id": "variant-3",
+   "category": "spelling_ocr_variant",
+   "question": "ಕ್ಷೀಣವಾಗುವುದು",
+   "relevant_chunks": [
+    "TK005_0079"
+   ],
+   "must_contain": [
+    "ಕ್ಷೀಣವಾಗುವದು"
+   ],
+   "expected_behavior": "answer",
+   "notes": "ದು vs ದ spelling",
+   "verification": "mechanical: indexed spelling occurs in the chunk; query spelling differs"
+  },
+  {
+   "id": "page-1",
+   "category": "page_specific",
+   "question": "TK003 ಪುಸ್ತಕದ ಪುಟ 4 ರಲ್ಲಿ ಏನು ಹೇಳಲಾಗಿದೆ?",
+   "book_id": "TK003",
+   "page": 4,
+   "relevant_chunks": [
+    "TK003_0003",
+    "TK003_0004"
+   ],
+   "expected_behavior": "answer",
+   "verification": "mechanical: chunks whose page range covers the page"
+  },
+  {
+   "id": "page-2",
+   "category": "page_specific",
+   "question": "TK003 ಪುಸ್ತಕದ ಪುಟ 30 ರಲ್ಲಿ ಏನು ಹೇಳಲಾಗಿದೆ?",
+   "book_id": "TK003",
+   "page": 30,
+   "relevant_chunks": [
+    "TK003_0039",
+    "TK003_0040"
+   ],
+   "expected_behavior": "answer",
+   "verification": "mechanical: chunks whose page range covers the page"
+  },
+  {
+   "id": "page-3",
+   "category": "page_specific",
+   "question": "TK004 ಪುಸ್ತಕದ ಪುಟ 3 ರಲ್ಲಿ ಏನು ಹೇಳಲಾಗಿದೆ?",
+   "book_id": "TK004",
+   "page": 3,
+   "relevant_chunks": [
+    "TK004_0002",
+    "TK004_0003"
+   ],
+   "expected_behavior": "answer",
+   "verification": "mechanical: chunks whose page range covers the page"
+  },
+  {
+   "id": "insufficient-1",
+   "category": "insufficient_evidence",
+   "question": "ಚಂದ್ರಯಾನ-3 ಯಾವಾಗ ಉಡಾವಣೆಯಾಯಿತು?",
+   "relevant_chunks": [],
+   "corpus_absent_terms": [
+    "ಚಂದ್ರಯಾನ"
+   ],
+   "expected_behavior": "abstain",
+   "verification": "mechanical: key term occurs in no chunk; needs human review that no synonym answers it"
+  },
+  {
+   "id": "insufficient-2",
+   "category": "insufficient_evidence",
+   "question": "ಇಂಟರ್ನೆಟ್ ಯಾವಾಗ ಆವಿಷ್ಕಾರವಾಯಿತು?",
+   "relevant_chunks": [],
+   "corpus_absent_terms": [
+    "ಇಂಟರ್ನೆಟ್"
+   ],
+   "expected_behavior": "abstain",
+   "verification": "mechanical: key term occurs in no chunk; needs human review that no synonym answers it"
+  },
+  {
+   "id": "ambiguous-1",
+   "category": "ambiguous",
+   "question": "ಅವರು ಎಲ್ಲಿ ಜನಿಸಿದರು?",
+   "relevant_chunks": [],
+   "expected_behavior": "clarify_or_abstain",
+   "verification": "human_review_needed: no referent for 'ಅವರು'; correct behaviour is a judgment call"
+  }
+ ]
+}
